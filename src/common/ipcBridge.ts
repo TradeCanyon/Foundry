@@ -29,7 +29,7 @@ export const conversation = {
   remove: bridge.buildProvider<boolean, { id: string }>('remove-conversation'), // 删除对话
   update: bridge.buildProvider<boolean, { id: string; updates: Partial<TChatConversation>; mergeExtra?: boolean }>('update-conversation'), // 更新对话信息
   reset: bridge.buildProvider<void, IResetConversationParams>('reset-conversation'), // 重置对话
-  stop: bridge.buildProvider<IBridgeResponse<{}>, { conversation_id: string }>('chat.stop.stream'), // 停止会话
+  stop: bridge.buildProvider<IBridgeResponse<{}>, { conversation_id: string; msg_id?: string }>('chat.stop.stream'), // 停止会话
   sendMessage: bridge.buildProvider<IBridgeResponse<{}>, ISendMessageParams>('chat.send.message'), // 发送消息（统一接口）
   confirmMessage: bridge.buildProvider<IBridgeResponse, IConfirmMessageParams>('conversation.confirm.message'), // 通用确认消息
   responseStream: bridge.buildEmitter<IResponseMessage>('chat.response.stream'), // 接收消息（统一接口）
@@ -59,6 +59,8 @@ export const application = {
   updateSystemInfo: bridge.buildProvider<IBridgeResponse, { cacheDir: string; workDir: string }>('system.update-info'), // 更新系统信息
   getZoomFactor: bridge.buildProvider<number, void>('app.get-zoom-factor'),
   setZoomFactor: bridge.buildProvider<number, { factor: number }>('app.set-zoom-factor'),
+  getStartupSettings: bridge.buildProvider<{ startOnBoot: boolean; openWebUiOnBoot: boolean; silentOnBoot: boolean; closeToTray: boolean; effectiveStartOnBoot?: boolean }, void>('app.get-startup-settings'),
+  setStartupSettings: bridge.buildProvider<IBridgeResponse<{ startOnBoot: boolean; openWebUiOnBoot: boolean; silentOnBoot: boolean; closeToTray: boolean; effectiveStartOnBoot?: boolean }>, { startOnBoot: boolean; openWebUiOnBoot: boolean; silentOnBoot: boolean; closeToTray: boolean }>('app.set-startup-settings'),
 };
 
 // Manual (opt-in) updates via GitHub Releases

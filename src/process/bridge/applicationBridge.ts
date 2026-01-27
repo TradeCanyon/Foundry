@@ -6,10 +6,12 @@
 
 import { app } from 'electron';
 import { ipcBridge } from '../../common';
-import { getSystemDir, ProcessEnv } from '../initStorage';
+import { getSystemDir, ProcessConfig, ProcessEnv } from '../initStorage';
 import { copyDirectoryRecursively } from '../utils';
 import WorkerManage from '../WorkerManage';
 import { getZoomFactor, setZoomFactor } from '../utils/zoom';
+import { applyStartupSettingsToSystem, getEffectiveStartOnBoot, type StartupSettings } from '../utils/autoStart';
+import { setCloseToTray } from '../runtime/appRuntimeSettings';
 
 export function initApplicationBridge(): void {
   ipcBridge.application.restart.provider(() => {
@@ -47,5 +49,63 @@ export function initApplicationBridge(): void {
 
   ipcBridge.application.setZoomFactor.provider(({ factor }) => {
     return Promise.resolve(setZoomFactor(factor));
+  });
+
+  ipcBridge.application.getStartupSettings.provider(async () => {
+    const startOnBoot = (await ProcessConfig.get('app.startOnBoot').catch(() => false)) === true;
+    const openWebUiOnBoot = (await ProcessConfig.get('app.openWebUiOnBoot').catch(() => false)) === true;
+    const silentOnBoot = (await ProcessConfig.get('app.silentOnBoot').catch(() => false)) === true;
+    const closeToTray = (await ProcessConfig.get('app.closeToTray').catch(() => true)) !== false;
+
+    // Provide a best-effort view of what the OS currently has registered.
+    let effectiveStartOnBoot: boolean | undefined;
+    if (app.isPackaged) {
+      try {
+        effectiveStartOnBoot = getEffectiveStartOnBoot();
+      } catch {
+        effectiveStartOnBoot = undefined;
+      }
+    }
+
+    return { startOnBoot, openWebUiOnBoot, silentOnBoot, closeToTray, effectiveStartOnBoot };
+  });
+
+  ipcBridge.application.setStartupSettings.provider(async ({ startOnBoot, openWebUiOnBoot, silentOnBoot, closeToTray }) => {
+    const normalized: StartupSettings = {
+      startOnBoot: startOnBoot === true,
+      openWebUiOnBoot: openWebUiOnBoot === true,
+      silentOnBoot: silentOnBoot === true,
+      closeToTray: closeToTray !== false,
+    };
+
+    try {
+      await ProcessConfig.set('app.startOnBoot', normalized.startOnBoot);
+      await ProcessConfig.set('app.openWebUiOnBoot', normalized.openWebUiOnBoot);
+      await ProcessConfig.set('app.silentOnBoot', normalized.silentOnBoot);
+      await ProcessConfig.set('app.closeToTray', normalized.closeToTray);
+    } catch (error) {
+      return { success: false, msg: error instanceof Error ? error.message : String(error) };
+    }
+
+    // Apply runtime behavior immediately.
+    setCloseToTray(normalized.closeToTray);
+
+    let systemApplyWarning: string | undefined;
+    try {
+      await applyStartupSettingsToSystem(normalized);
+    } catch (error) {
+      systemApplyWarning = error instanceof Error ? error.message : String(error);
+    }
+
+    let effectiveStartOnBoot: boolean | undefined;
+    if (app.isPackaged) {
+      try {
+        effectiveStartOnBoot = getEffectiveStartOnBoot();
+      } catch {
+        effectiveStartOnBoot = undefined;
+      }
+    }
+
+    return { success: true, data: { ...normalized, effectiveStartOnBoot }, msg: systemApplyWarning };
   });
 }
