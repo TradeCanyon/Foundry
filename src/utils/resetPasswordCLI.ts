@@ -35,7 +35,7 @@ const log = {
 
 const hashPasswordAsync = (password: string, saltRounds: number): Promise<string> =>
   new Promise((resolve, reject) => {
-    bcrypt.hash(password, saltRounds, (error, hash) => {
+    bcrypt.hash(password, saltRounds, (error: Error | null, hash: string) => {
       if (error) {
         reject(error);
         return;

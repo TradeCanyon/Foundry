@@ -85,6 +85,15 @@ typings/
 # Webpack
 .webpack/
 
+# OpenCode Sisyphus notes
+.sisyphus/
+
+# Local temp
+tmp/
+
+# Windows PowerShell style env expansion artifacts
+${env.ELECTRON_CACHE}/
+
 # Vite
 .vite/
 

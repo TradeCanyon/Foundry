@@ -30,6 +30,8 @@ interface EventTypes {
   'preview.open': [{ content: string; contentType: PreviewContentType; metadata?: { title?: string; fileName?: string } }];
   // 填充输入框事件 / Fill sendbox input event
   'sendbox.fill': [string]; // prompt text to fill
+  // 更新检查事件 / Update check event
+  'update.open': [{ source?: string }];
 }
 
 export const emitter = new EventEmitter<EventTypes>();

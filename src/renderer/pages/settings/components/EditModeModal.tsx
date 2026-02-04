@@ -101,6 +101,8 @@ const EditModeModal = ModalHOC<{ data?: IProvider; onChange(data: IProvider): vo
   const { data } = props;
   const [form] = Form.useForm();
 
+  const isZhipu = Boolean(data?.baseUrl?.includes('open.bigmodel.cn') || (data?.name || '').toLowerCase().includes('zhipu'));
+
   // 获取供应商 Logo / Get provider logo
   const providerLogo = useMemo(() => {
     return getProviderLogo(data?.name, data?.baseUrl, data?.platform);
@@ -144,9 +146,22 @@ const EditModeModal = ModalHOC<{ data?: IProvider; onChange(data: IProvider): vo
             <Input placeholder={t('settings.modelProvider')} />
           </Form.Item>
 
-          {/* Base URL - 仅 Gemini 平台显示（用于自定义代理）/ Base URL - only for Gemini platform (for custom proxy) */}
-          <Form.Item label={t('settings.baseUrl')} required={data?.platform !== 'gemini' && data?.platform !== 'gemini-vertex-ai'} rules={[{ required: data?.platform !== 'gemini' && data?.platform !== 'gemini-vertex-ai' }]} field={'baseUrl'} disabled>
-            <Input></Input>
+          {/* Base URL - editable for custom providers */}
+          <Form.Item
+            label={t('settings.baseUrl')}
+            required={data?.platform !== 'gemini' && data?.platform !== 'gemini-vertex-ai'}
+            rules={[{ required: data?.platform !== 'gemini' && data?.platform !== 'gemini-vertex-ai' }]}
+            field={'baseUrl'}
+            extra={
+              isZhipu ? (
+                <div className='text-11px text-t-secondary mt-2 leading-4'>
+                  <div>GLM Coding endpoint: https://open.bigmodel.cn/api/coding/paas/v4</div>
+                  <div>General endpoint: https://open.bigmodel.cn/api/paas/v4</div>
+                </div>
+              ) : undefined
+            }
+          >
+            <Input placeholder={t('settings.baseUrl')} />
           </Form.Item>
 
           <Form.Item label={t('settings.apiKey')} required rules={[{ required: true }]} field={'apiKey'} extra={<div className='text-11px text-t-secondary mt-2'>💡 {t('settings.multiApiKeyEditTip')}</div>}>

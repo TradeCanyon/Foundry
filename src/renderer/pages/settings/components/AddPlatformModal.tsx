@@ -196,8 +196,22 @@ const AddPlatformModal = ModalHOC<{
             </Select>
           </Form.Item>
 
-          {/* Base URL - 仅自定义选项和标准 Gemini 显示 / Base URL - only for Custom option and standard Gemini */}
-          <Form.Item hidden={!isCustom && platformValue !== 'gemini'} label={t('settings.baseUrl')} field={'baseUrl'} required={isCustom} rules={[{ required: isCustom }]}>
+          {/* Base URL - Custom / Gemini / Zhipu (needs selectable endpoints) */}
+          <Form.Item
+            hidden={!isCustom && platformValue !== 'gemini' && platformValue !== 'Zhipu'}
+            label={t('settings.baseUrl')}
+            field={'baseUrl'}
+            required={isCustom}
+            rules={[{ required: isCustom }]}
+            extra={
+              platformValue === 'Zhipu' ? (
+                <div className='text-11px text-t-secondary mt-2 leading-4'>
+                  <div>GLM Coding endpoint: https://open.bigmodel.cn/api/coding/paas/v4</div>
+                  <div>General endpoint: https://open.bigmodel.cn/api/paas/v4</div>
+                </div>
+              ) : undefined
+            }
+          >
             <Input
               placeholder={selectedPlatform?.baseUrl || ''}
               onBlur={() => {

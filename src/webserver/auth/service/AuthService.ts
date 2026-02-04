@@ -30,7 +30,7 @@ interface UserCredentials {
 
 const hashPasswordAsync = (password: string, saltRounds: number): Promise<string> =>
   new Promise((resolve, reject) => {
-    bcrypt.hash(password, saltRounds, (error, hash) => {
+    bcrypt.hash(password, saltRounds, (error: Error | null, hash: string) => {
       if (error) {
         reject(error);
         return;
@@ -41,7 +41,7 @@ const hashPasswordAsync = (password: string, saltRounds: number): Promise<string
 
 const comparePasswordAsync = (password: string, hash: string): Promise<boolean> =>
   new Promise((resolve, reject) => {
-    bcrypt.compare(password, hash, (error, same) => {
+    bcrypt.compare(password, hash, (error: Error | null, same: boolean) => {
       if (error) {
         reject(error);
         return;

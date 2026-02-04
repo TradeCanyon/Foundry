@@ -5,6 +5,7 @@
  */
 
 import express from 'express';
+import { shell } from 'electron';
 import { createServer } from 'http';
 import { WebSocketServer } from 'ws';
 import { execSync } from 'child_process';
@@ -316,12 +317,31 @@ export async function startWebServerWithInstance(port: number, allowRemote = fal
  *
  * @param port 服务器端口 / Server port
  * @param allowRemote 是否允许远程访问 / Allow remote access
+ * @param options 启动选项 / Start options
  */
-export async function startWebServer(port: number, allowRemote = false): Promise<void> {
+export async function startWebServer(
+  port: number,
+  allowRemote = false,
+  options?: {
+    /** Open the WebUI in default browser after server starts. Default: true */
+    openBrowser?: boolean;
+  }
+): Promise<void> {
+  // Keep old behavior by default.
+  // Callers can disable this (e.g. silent auto-start on boot).
+  const shouldOpenBrowser = options?.openBrowser !== false;
+
   // 复用 startWebServerWithInstance
   // Reuse startWebServerWithInstance
   await startWebServerWithInstance(port, allowRemote);
 
-  // 不再自动打开浏览器，用户可手动访问控制台输出的 URL
-  // No longer auto-open browser, user can manually visit the URL printed in console
+  // 自动打开浏览器（仅在有桌面环境时）
+  // Auto-open browser (only when desktop environment is available)
+  if (shouldOpenBrowser && (process.env.DISPLAY || process.platform !== 'linux')) {
+    const serverIP = getServerIP();
+    const localUrl = `http://localhost:${port}`;
+    const displayUrl = serverIP ? `http://${serverIP}:${port}` : localUrl;
+    const urlToOpen = allowRemote && serverIP ? displayUrl : localUrl;
+    void shell.openExternal(urlToOpen);
+  }
 }

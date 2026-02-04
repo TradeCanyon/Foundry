@@ -4,12 +4,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Button, Progress } from '@arco-design/web-react';
 import { CheckOne, Download, FolderOpen, Refresh, CloseOne } from '@icon-park/react';
 import { ipcBridge } from '@/common';
 import AionModal from '@/renderer/components/base/AionModal';
 import MarkdownView from '@/renderer/components/Markdown';
+import { emitter } from '@/renderer/utils/emitter';
 import type { UpdateDownloadProgressEvent, UpdateReleaseInfo } from '@/common/updateTypes';
 import { useTranslation } from 'react-i18next';
 
@@ -38,11 +39,11 @@ const UpdateModal: React.FC = () => {
     setDownloadPath('');
   };
 
-  const includePrerelease = useMemo(() => localStorage.getItem('update.includePrerelease') === 'true', [visible]);
-
   const checkForUpdates = async () => {
     setStatus('checking');
     try {
+      // Always read fresh preference from localStorage when checking
+      const includePrerelease = localStorage.getItem('update.includePrerelease') === 'true';
       const res = await ipcBridge.update.check.invoke({ includePrerelease });
       if (!res?.success) {
         throw new Error(res?.msg || t('update.checkFailed'));
@@ -114,11 +115,11 @@ const UpdateModal: React.FC = () => {
 
   useEffect(() => {
     const removeOpenListener = ipcBridge.update.open.on(handleOpenUpdateModal);
-    window.addEventListener('aionui-open-update-modal', handleOpenUpdateModal);
+    emitter.on('update.open', handleOpenUpdateModal);
 
     return () => {
       removeOpenListener();
-      window.removeEventListener('aionui-open-update-modal', handleOpenUpdateModal);
+      emitter.off('update.open', handleOpenUpdateModal);
     };
   }, []);
 

@@ -80,6 +80,19 @@ export interface IConfigStorageRefer {
     id: string;
     useModel: string;
   };
+
+  // App startup behavior
+  // - startOnBoot: register the app as an OS login item
+  // - openWebUiOnBoot: when launched by OS login item, start WebUI service (no browser auto-open)
+  'app.startOnBoot'?: boolean;
+  'app.openWebUiOnBoot'?: boolean;
+
+  // When auto-starting on boot, run silently (tray only, no main window).
+  // Only applies to login-item launches.
+  'app.silentOnBoot'?: boolean;
+
+  // Close button behavior (all launches): if true, closing window hides to tray.
+  'app.closeToTray'?: boolean;
 }
 
 export interface IEnvStorageRefer {
