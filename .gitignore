@@ -108,6 +108,7 @@ out/
 # AI CLI tool configurations (may contain sensitive information)
 **/.claude/settings.local.json
 **/.claude/settings.json
+**/.claude/commands/
 .qwen/
 .qwen/*/
 .iflow/
@@ -162,3 +163,6 @@ specs/**/work-*
 .spec-cache/
 .tmp/
 my-video
+
+# Agent Kit
+.agent

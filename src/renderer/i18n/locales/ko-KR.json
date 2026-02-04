@@ -391,6 +391,7 @@
     "deleteAssistantTitle": "어시스턴트 삭제",
     "deleteAssistantConfirm": "이 어시스턴트를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.",
     "cannotDeleteBuiltin": "내장 어시스턴트는 삭제할 수 없습니다",
+    "duplicateAssistant": "복제하여 생성",
     "assistantMainAgent": "메인 에이전트",
     "addSkills": "스킬 추가",
     "addSkillsTitle": "스킬 추가",
@@ -1048,7 +1049,11 @@
       "active": "실행 중",
       "paused": "일시 중지됨",
       "error": "오류",
-      "unread": "새 실행"
+      "unread": "새 실행",
+      "unconfigured": "예약 작업 미설정",
+      "unconfiguredHint": "이 채팅에는 아직 예약 작업이 없습니다. Agent와 함께 만들어 보세요!",
+      "createNow": "지금 만들기",
+      "defaultPrompt": "매일 오전 10시에 최신 AI 뉴스를 검색하고 요약하여 인사이트 보고서를 출력해 주세요."
     },
     "actions": {
       "goTo": "채팅 보기",
