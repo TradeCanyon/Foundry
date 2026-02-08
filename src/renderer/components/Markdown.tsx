@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright 2025 AionUi (aionui.com)
+ * Copyright 2025 Foundry (foundry.app)
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -12,6 +12,9 @@ import rehypeKatex from 'rehype-katex';
 import remarkBreaks from 'remark-breaks';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
+
+// Import KaTeX CSS into the document head (fonts propagate into shadow DOM via @font-face)
+import 'katex/dist/katex.min.css';
 
 import { ipcBridge } from '@/common';
 import { Message } from '@arco-design/web-react';
@@ -27,7 +30,7 @@ import LocalImageView from './LocalImageView';
 const formatCode = (code: string) => {
   const content = String(code).replace(/\n$/, '');
   try {
-    //@todo 可以再美化
+    // @todo Can be further beautified
     return JSON.stringify(
       JSON.parse(content),
       (_key, value) => {
@@ -130,7 +133,7 @@ function CodeBlock(props: any) {
               {'<' + language.toLocaleLowerCase() + '>'}
             </span>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              {/* 复制代码按钮 / Copy code button */}
+              {/* Copy code button */}
               <Copy
                 theme='outline'
                 size='18'
@@ -138,11 +141,11 @@ function CodeBlock(props: any) {
                 fill='var(--text-secondary)'
                 onClick={() => {
                   void navigator.clipboard.writeText(formatCode(children)).then(() => {
-                    Message.success('复制成功');
+                    Message.success('Copied');
                   });
                 }}
               />
-              {/* 折叠/展开按钮 / Fold/unfold button */}
+              {/* Fold/unfold button */}
               {logicRender(!fold, <Up theme='outline' size='20' style={{ cursor: 'pointer' }} fill='var(--text-secondary)' onClick={() => setFlow(true)} />, <Down theme='outline' size='20' style={{ cursor: 'pointer' }} fill='var(--text-secondary)' onClick={() => setFlow(false)} />)}
             </div>
           </div>
@@ -177,9 +180,35 @@ function CodeBlock(props: any) {
   }, [props, currentTheme, fold]);
 }
 
+// Extract KaTeX CSS from document stylesheets to inject into shadow DOM.
+// @font-face declarations propagate from the document into shadow DOM automatically,
+// but class-based layout rules (.katex, .katex-display, etc.) do not.
+let _katexCssCache: string | null = null;
+function getKatexLayoutCss(): string {
+  // Only cache once we find actual content (CSS may load after first render)
+  if (_katexCssCache) return _katexCssCache;
+  for (const sheet of Array.from(document.styleSheets)) {
+    try {
+      const rules = Array.from(sheet.cssRules);
+      if (rules.some((r) => r.cssText.includes('.katex'))) {
+        // Skip @font-face rules — they're already loaded in the document head
+        // and their relative font URLs would break inside shadow DOM
+        _katexCssCache = rules
+          .filter((r) => !(r instanceof CSSFontFaceRule))
+          .map((r) => r.cssText)
+          .join('\n');
+        return _katexCssCache;
+      }
+    } catch {
+      continue;
+    }
+  }
+  return '';
+}
+
 const createInitStyle = (currentTheme = 'light', cssVars?: Record<string, string>, customCss?: string) => {
   const style = document.createElement('style');
-  // 将外部 CSS 变量注入到 Shadow DOM 中，支持深色模式 Inject external CSS variables into Shadow DOM for dark mode support
+  // Inject external CSS variables into Shadow DOM for dark mode support
   const cssVarsDeclaration = cssVars
     ? Object.entries(cssVars)
         .map(([key, value]) => `${key}: ${value};`)
@@ -187,12 +216,12 @@ const createInitStyle = (currentTheme = 'light', cssVars?: Record<string, string
     : '';
 
   style.innerHTML = `
-  /* Shadow DOM CSS 变量定义 Shadow DOM CSS variable definitions */
+  /* Shadow DOM CSS variable definitions */
   :host {
     ${cssVarsDeclaration}
   }
 
-  * {
+  *:not(.katex, .katex *) {
     line-height:26px;
     font-size:16px;
     color: inherit;
@@ -243,9 +272,9 @@ const createInitStyle = (currentTheme = 'light', cssVars?: Record<string, string
   img {
     max-width: 100%;
   }
-   /* 给整个表格添加边框 */
+   /* Add border to entire table */
   table {
-    border-collapse: collapse;  /* 表格边框合并为单一边框 */
+    border-collapse: collapse;  /* Merge table borders into single border */
     th{
       padding: 8px;
       border: 1px solid var(--bg-3);
@@ -257,6 +286,13 @@ const createInitStyle = (currentTheme = 'light', cssVars?: Record<string, string
         border: 1px solid var(--bg-3);
         min-width: 120px;
     }
+  }
+  /* Horizontal rules - subtle, not harsh white */
+  hr {
+    border: none;
+    border-top: 1px solid var(--bg-3);
+    margin: 16px 0;
+    opacity: 0.5;
   }
   /* Inline code should wrap on small screens to avoid horizontal overflow */
   .markdown-shadow-body code {
@@ -278,7 +314,17 @@ const createInitStyle = (currentTheme = 'light', cssVars?: Record<string, string
     }
   }
 
-  /* 用户自定义 CSS（注入到 Shadow DOM）User Custom CSS (injected into Shadow DOM) */
+  /* KaTeX math rendering (extracted from document stylesheets) */
+  ${getKatexLayoutCss()}
+
+  /* Constrain block math to prevent container blowout */
+  .katex-display {
+    overflow-x: auto;
+    overflow-y: hidden;
+    max-width: 100%;
+  }
+
+  /* User Custom CSS (injected into Shadow DOM) */
   ${customCss || ''}
   `;
   return style;
@@ -289,13 +335,13 @@ const ShadowView = ({ children }: { children: React.ReactNode }) => {
   const styleRef = React.useRef<HTMLStyleElement | null>(null);
   const [customCss, setCustomCss] = useState<string>('');
 
-  // 从 ConfigStorage 加载自定义 CSS / Load custom CSS from ConfigStorage
+  // Load custom CSS from ConfigStorage
   React.useEffect(() => {
     void import('@/common/storage').then(({ ConfigStorage }) => {
       ConfigStorage.get('customCss')
         .then((css) => {
           if (css) {
-            // 使用统一的工具函数自动添加 !important
+            // Use unified utility function to auto-add !important
             const processedCss = addImportantToAll(css);
             setCustomCss(processedCss);
           } else {
@@ -307,11 +353,11 @@ const ShadowView = ({ children }: { children: React.ReactNode }) => {
         });
     });
 
-    // 监听自定义 CSS 更新事件 / Listen to custom CSS update events
+    // Listen to custom CSS update events
     const handleCustomCssUpdate = (e: CustomEvent) => {
       if (e.detail?.customCss !== undefined) {
         const css = e.detail.customCss || '';
-        // 使用统一的工具函数自动添加 !important
+        // Use unified utility function to auto-add !important
         const processedCss = addImportantToAll(css);
         setCustomCss(processedCss);
       }
@@ -324,7 +370,7 @@ const ShadowView = ({ children }: { children: React.ReactNode }) => {
     };
   }, []);
 
-  // 更新 Shadow DOM 中的 CSS 变量和自定义样式 Update CSS variables and custom styles in Shadow DOM
+  // Update CSS variables and custom styles in Shadow DOM
   const updateStyles = React.useCallback(
     (shadowRoot: ShadowRoot) => {
       const computedStyle = getComputedStyle(document.documentElement);
@@ -340,7 +386,7 @@ const ShadowView = ({ children }: { children: React.ReactNode }) => {
         '--text-secondary': computedStyle.getPropertyValue('--text-secondary'),
       };
 
-      // 移除旧样式并添加新样式 Remove old style and add new style
+      // Remove old style and add new style
       if (styleRef.current) {
         styleRef.current.remove();
       }
@@ -354,14 +400,14 @@ const ShadowView = ({ children }: { children: React.ReactNode }) => {
   React.useEffect(() => {
     if (!root) return;
 
-    // 当自定义 CSS 变化时，更新样式 Update styles when custom CSS changes
+    // Update styles when custom CSS changes
     updateStyles(root);
   }, [root, customCss, updateStyles]);
 
   React.useEffect(() => {
     if (!root) return;
 
-    // 监听主题变化 Listen for theme changes
+    // Listen for theme changes
     const observer = new MutationObserver(() => {
       updateStyles(root);
     });
@@ -424,7 +470,7 @@ const MarkdownView: React.FC<MarkdownViewProps> = ({ hiddenCodeCopyButton, codeS
       <ShadowView>
         <div ref={onRef} className='markdown-shadow-body'>
           <ReactMarkdown
-            remarkPlugins={[remarkGfm, remarkMath, remarkBreaks]}
+            remarkPlugins={[remarkGfm, [remarkMath, { singleDollarTextMath: false }], remarkBreaks]}
             rehypePlugins={[rehypeKatex]}
             components={{
               span: ({ node: _node, className, children, ...props }) => {
@@ -502,6 +548,18 @@ const MarkdownView: React.FC<MarkdownViewProps> = ({ hiddenCodeCopyButton, codeS
                 }
                 return <img {...props} />;
               },
+              // Style horizontal rules to be subtle, not harsh white lines
+              hr: ({ node: _node, ...props }) => (
+                <hr
+                  {...props}
+                  style={{
+                    border: 'none',
+                    borderTop: '1px solid var(--bg-3)',
+                    margin: '16px 0',
+                    opacity: 0.5,
+                  }}
+                />
+              ),
             }}
           >
             {normalizedChildren}

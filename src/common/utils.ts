@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright 2025 AionUi (aionui.com)
+ * Copyright 2025 Foundry (foundry.app)
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -50,14 +50,9 @@ export const parseError = (error: any): string => {
 };
 
 /**
- * 根据语言代码解析为标准化的区域键
  * Resolve language code to standardized locale key
+ * Currently only English is supported
  */
-export const resolveLocaleKey = (language: string): 'zh-CN' | 'en-US' | 'ja-JP' | 'zh-TW' | 'ko-KR' => {
-  const lang = language.toLowerCase();
-  if (lang.startsWith('zh-tw')) return 'zh-TW';
-  if (lang.startsWith('zh')) return 'zh-CN';
-  if (lang.startsWith('ja')) return 'ja-JP';
-  if (lang.startsWith('ko')) return 'ko-KR';
+export const resolveLocaleKey = (_language: string): 'en-US' => {
   return 'en-US';
 };

@@ -1,11 +1,11 @@
 /**
  * @license
- * Copyright 2025 AionUi (aionui.com)
+ * Copyright 2025 Foundry (foundry.app)
  * SPDX-License-Identifier: Apache-2.0
  */
 
 import type { TProviderWithModel } from '@/common/storage';
-import { Type } from '@google/genai';
+import { GoogleGenAI, Type } from '@google/genai';
 import type { Config, ToolResult, ToolInvocation, ToolLocation, ToolCallConfirmationDetails, ToolResultDisplay, MessageBus } from '@office-ai/aioncli-core';
 import { BaseDeclarativeTool, BaseToolInvocation, Kind, getErrorMessage, ToolErrorType } from '@office-ai/aioncli-core';
 import * as fs from 'fs';
@@ -129,12 +129,14 @@ async function saveGeneratedImage(base64Data: string, config: Config, messageId?
 }
 
 export class ImageGenerationTool extends BaseDeclarativeTool<ImageGenerationToolParams, ToolResult> {
-  static readonly Name: string = 'aionui_image_generation';
+  static readonly Name: string = 'foundry_image_generation';
 
   constructor(
     private readonly config: Config,
-    private readonly imageGenerationModel: TProviderWithModel,
-    private readonly proxy?: string
+    private readonly imageGenerationModel: TProviderWithModel | undefined,
+    private readonly geminiApiKey: string | undefined,
+    private readonly proxy?: string,
+    private readonly imageGenNativeModel?: string
   ) {
     super(
       ImageGenerationTool.Name,
@@ -188,7 +190,7 @@ IMPORTANT: When user provides multiple images (like @img1.jpg @img2.png), ALWAYS
       },
       config.getMessageBus(),
       true, // isOutputMarkdown
-      false // canUpdateOutput
+      true // canUpdateOutput
     );
   }
 
@@ -251,27 +253,29 @@ IMPORTANT: When user provides multiple images (like @img1.jpg @img2.png), ALWAYS
   }
 
   protected createInvocation(params: ImageGenerationToolParams, messageBus: MessageBus, _toolName?: string, _toolDisplayName?: string): ToolInvocation<ImageGenerationToolParams, ToolResult> {
-    return new ImageGenerationInvocation(this.config, this.imageGenerationModel, params, this.proxy, messageBus, _toolName, _toolDisplayName);
+    return new ImageGenerationInvocation(this.config, this.imageGenerationModel, this.geminiApiKey, params, this.proxy, messageBus, _toolName, _toolDisplayName, this.imageGenNativeModel);
   }
 }
 
 class ImageGenerationInvocation extends BaseToolInvocation<ImageGenerationToolParams, ToolResult> {
   private rotatingClient: RotatingClient | undefined;
-  private currentModel: string;
+  private currentModel: string | undefined;
 
   constructor(
     private readonly config: Config,
-    private readonly imageGenerationModel: TProviderWithModel,
+    private readonly imageGenerationModel: TProviderWithModel | undefined,
+    private readonly geminiApiKey: string | undefined,
     params: ImageGenerationToolParams,
     private readonly proxy: string | undefined,
     messageBus: MessageBus,
     _toolName?: string,
-    _toolDisplayName?: string
+    _toolDisplayName?: string,
+    private readonly imageGenNativeModel?: string
   ) {
     super(params, messageBus, _toolName, _toolDisplayName);
 
     // Initialize the rotating client using factory
-    this.currentModel = this.imageGenerationModel.useModel;
+    this.currentModel = this.imageGenerationModel?.useModel;
   }
 
   private async ensureClient(): Promise<RotatingClient> {
@@ -328,23 +332,23 @@ class ImageGenerationInvocation extends BaseToolInvocation<ImageGenerationToolPa
         },
       };
     } else {
-      // 处理本地文件路径：支持绝对路径、相对路径和纯文件名
+      // Handle local file path: supports absolute path, relative path, and pure filename
       let processedUri = imageUri;
 
-      // 如果文件名以@开头，去掉@符号
+      // If filename starts with @, remove the @ symbol
       if (imageUri.startsWith('@')) {
         processedUri = imageUri.substring(1);
       }
 
       let fullPath = processedUri;
 
-      // 如果不是绝对路径，尝试拼接工作目录
+      // If not an absolute path, try joining with working directory
       if (!path.isAbsolute(processedUri)) {
         const workspaceDir = this.config.getWorkingDir();
         fullPath = path.join(workspaceDir, processedUri);
       }
 
-      // 检查文件是否存在且为图片文件
+      // Check if file exists and is an image file
       try {
         // Check if file exists first
         await fs.promises.access(fullPath, fs.constants.F_OK);
@@ -365,9 +369,9 @@ class ImageGenerationInvocation extends BaseToolInvocation<ImageGenerationToolPa
           },
         };
       } catch (error) {
-        // 文件不存在或读取失败，提供详细的错误信息
+        // File does not exist or read failed, provide detailed error message
         const workspaceDir = this.config.getWorkingDir();
-        const possiblePaths = [imageUri, path.join(workspaceDir, imageUri)].filter((p, i, arr) => arr.indexOf(p) === i); // 去重
+        const possiblePaths = [imageUri, path.join(workspaceDir, imageUri)].filter((p, i, arr) => arr.indexOf(p) === i); // deduplicate
 
         const errorMessage = error instanceof Error ? error.message : String(error);
 
@@ -382,11 +386,119 @@ class ImageGenerationInvocation extends BaseToolInvocation<ImageGenerationToolPa
     }
   }
 
+  private async executeWithGeminiNative(signal: AbortSignal, updateOutput?: (output: string) => void): Promise<ToolResult> {
+    updateOutput?.(`Generating with Gemini Image (key: ${this.geminiApiKey ? 'present' : 'MISSING'})...`);
+    const client = new GoogleGenAI({ apiKey: this.geminiApiKey! });
+    const imageUris = this.getImageUris();
+    const hasImages = imageUris.length > 0;
+
+    try {
+      // Build content parts
+      const parts: Array<{ text: string } | { inlineData: { mimeType: string; data: string } }> = [];
+
+      if (hasImages) {
+        updateOutput?.('Generating with Gemini Image (image edit)...');
+        for (const uri of imageUris) {
+          let fullPath = uri;
+          if (!path.isAbsolute(uri)) {
+            fullPath = path.resolve(this.config.getWorkingDir(), uri);
+          }
+          const buffer = await fs.promises.readFile(fullPath);
+          const mimeType = getImageMimeType(fullPath);
+          parts.push({ inlineData: { mimeType, data: buffer.toString('base64') } });
+        }
+        parts.push({ text: this.params.prompt });
+      } else {
+        updateOutput?.('Generating with Gemini Image...');
+        parts.push({ text: this.params.prompt });
+      }
+
+      const response = await client.models.generateContent({
+        model: this.imageGenNativeModel || 'gemini-2.5-flash-preview-image-generation',
+        contents: [{ role: 'user', parts }],
+        config: {
+          responseModalities: ['IMAGE', 'TEXT'],
+        },
+      });
+
+      // Extract image from response parts
+      const responseParts = response.candidates?.[0]?.content?.parts;
+      if (!responseParts) {
+        return {
+          llmContent: 'Gemini returned no content. The prompt may have been blocked by safety filters.',
+          returnDisplay: 'No image generated — prompt may have been blocked.',
+          error: { message: 'No response parts', type: ToolErrorType.EXECUTION_FAILED },
+        };
+      }
+
+      let imageBytes: string | undefined;
+      let imageMimeType = 'image/png';
+      let textResponse = '';
+
+      for (const part of responseParts) {
+        if (part.inlineData?.data) {
+          imageBytes = part.inlineData.data;
+          imageMimeType = part.inlineData.mimeType || 'image/png';
+        } else if (part.text) {
+          textResponse += part.text;
+        }
+      }
+
+      if (!imageBytes) {
+        // Model responded with text only (no image generated)
+        return {
+          llmContent: textResponse || 'No image was generated. The model may not support this type of image generation.',
+          returnDisplay: textResponse || 'No image generated.',
+        };
+      }
+
+      updateOutput?.('Saving generated image...');
+      const dataUrl = `data:${imageMimeType};base64,${imageBytes}`;
+      const sessionId = this.config.getSessionId();
+      const conversationId = sessionId?.split('########')[0];
+      const imagePath = await saveGeneratedImage(dataUrl, this.config, undefined, conversationId);
+      const relativeImagePath = path.relative(this.config.getWorkingDir(), imagePath);
+
+      const description = textResponse ? `\n\n${textResponse}` : '';
+      return {
+        llmContent: `Image generated with Gemini and saved to: ${imagePath}${description}`,
+        returnDisplay: {
+          img_url: imagePath,
+          relative_path: relativeImagePath,
+        } as unknown as ToolResultDisplay,
+      };
+    } catch (error) {
+      if (signal.aborted) {
+        return { llmContent: 'Image generation was cancelled by user.', returnDisplay: 'Operation cancelled by user.' };
+      }
+      const errorMessage = getErrorMessage(error);
+      // Surface error through tool progress (worker console.log goes to a black hole)
+      updateOutput?.(`FAILED: ${errorMessage}`);
+      return {
+        llmContent: `Error generating image with Gemini: ${errorMessage}`,
+        returnDisplay: `Error: ${errorMessage}`,
+        error: { message: errorMessage, type: ToolErrorType.EXECUTION_FAILED },
+      };
+    }
+  }
+
   async execute(signal: AbortSignal, updateOutput?: (output: string) => void): Promise<ToolResult> {
     if (signal.aborted) {
       return {
         llmContent: 'Image generation was cancelled by user before it could start.',
         returnDisplay: 'Operation cancelled by user.',
+      };
+    }
+
+    // Route: configured provider → Gemini native fallback → error
+    if (!this.imageGenerationModel) {
+      if (this.geminiApiKey) {
+        return this.executeWithGeminiNative(signal, updateOutput);
+      }
+      return {
+        llmContent: 'No image generation API configured. Add a Gemini API key or configure an image model in Settings.',
+        returnDisplay: 'No image generation API configured.',
+        error: { message: 'No image generation backend available', type: ToolErrorType.EXECUTION_FAILED },
       };
     }
 
@@ -467,7 +579,7 @@ class ImageGenerationInvocation extends BaseToolInvocation<ImageGenerationToolPa
       const completion: UnifiedChatCompletionResponse = await client.createChatCompletion(
         {
           model: this.currentModel,
-          messages: messages as any, // 必要的类型兼容：OpenAI原生格式
+          messages: messages as any, // Required type compatibility: OpenAI native format
         },
         {
           signal,

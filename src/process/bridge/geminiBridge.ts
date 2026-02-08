@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright 2025 AionUi (aionui.com)
+ * Copyright 2025 Foundry (foundry.app)
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -8,7 +8,7 @@ import { ipcBridge } from '@/common';
 import { getGeminiSubscriptionStatus } from '../services/geminiSubscription';
 
 export function initGeminiBridge(): void {
-  // 提供订阅状态查询 IPC：前端可用它判断是否展示高级模型。Expose CLI subscription status to renderer.
+  // Expose CLI subscription status to renderer. Frontend can use it to determine whether to show advanced models.
   ipcBridge.gemini.subscriptionStatus.provider(async ({ proxy }) => {
     try {
       const status = await getGeminiSubscriptionStatus(proxy);

@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright 2025 AionUi (aionui.com)
+ * Copyright 2025 Foundry (foundry.app)
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -44,11 +44,9 @@ export class PluginManager {
   private messageHandler: PluginMessageHandler | null = null;
 
   // Confirm handler for tool confirmations
-  // 工具确认处理器
   private confirmHandler: PluginConfirmHandler | null = null;
 
   // Runtime error cache: pluginId -> error message
-  // 运行时错误缓存：pluginId -> 错误消息
   private pluginErrors: Map<string, string> = new Map();
 
   constructor(sessionManager: SessionManager) {
@@ -57,7 +55,6 @@ export class PluginManager {
 
   /**
    * Get error message for a plugin
-   * 获取插件的错误消息
    */
   getPluginError(pluginId: string): string | undefined {
     return this.pluginErrors.get(pluginId);
@@ -65,7 +62,6 @@ export class PluginManager {
 
   /**
    * Clear error message for a plugin
-   * 清除插件的错误消息
    */
   clearPluginError(pluginId: string): void {
     this.pluginErrors.delete(pluginId);
@@ -86,7 +82,6 @@ export class PluginManager {
 
   /**
    * Set the confirm handler for tool confirmations
-   * 设置工具确认处理器
    */
   setConfirmHandler(handler: PluginConfirmHandler): void {
     this.confirmHandler = handler;
@@ -113,13 +108,12 @@ export class PluginManager {
 
   /**
    * Start a plugin with the given configuration
-   * 启动插件，记录启动过程中的错误
+   * Records errors during startup
    */
   async startPlugin(config: IChannelPluginConfig): Promise<void> {
     const { id, type } = config;
 
     // Clear previous error
-    // 清除之前的错误
     this.pluginErrors.delete(id);
 
     // Check if plugin is already running
@@ -141,7 +135,6 @@ export class PluginManager {
 
     try {
       // Initialize plugin
-      // 初始化插件
       await plugin.initialize(config);
     } catch (error) {
       const errorMsg = `Plugin initialization failed: ${error instanceof Error ? error.message : String(error)}`;
@@ -166,14 +159,12 @@ export class PluginManager {
     }
 
     // Set confirm handler
-    // 设置确认处理器
     if (this.confirmHandler) {
       plugin.onConfirm(this.confirmHandler);
     }
 
     try {
       // Start plugin
-      // 启动插件
       await plugin.start();
     } catch (error) {
       const errorMsg = `Plugin start failed: ${error instanceof Error ? error.message : String(error)}`;
@@ -260,7 +251,6 @@ export class PluginManager {
     const botInfo = plugin?.getBotInfo();
 
     // Get error from plugin instance or from error cache
-    // 从插件实例或错误缓存中获取错误
     const errorMessage = plugin?.error ?? this.pluginErrors.get(config.id);
 
     // Check credentials based on plugin type
@@ -301,7 +291,6 @@ export class PluginManager {
 
   /**
    * Emit status change event with error (when plugin is not yet created)
-   * 发送带错误的状态变化事件（当插件尚未创建时）
    */
   private emitStatusChangeWithError(pluginId: string, config: IChannelPluginConfig, errorMessage: string): void {
     const status: IChannelPluginStatus = {

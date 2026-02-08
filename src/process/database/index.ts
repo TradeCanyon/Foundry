@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright 2025 AionUi (aionui.com)
+ * Copyright 2025 Foundry (foundry.app)
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -18,16 +18,16 @@ import { rowToChannelUser, rowToChannelSession, rowToPairingRequest } from '@/ch
 import { encryptCredentials, decryptCredentials } from '@/channels/utils/credentialCrypto';
 
 /**
- * Main database class for AionUi
+ * Main database class for Foundry
  * Uses better-sqlite3 for fast, synchronous SQLite operations
  */
-export class AionUIDatabase {
+export class FoundryDatabase {
   private db: Database.Database;
   private readonly defaultUserId = 'system_default_user';
   private readonly systemPasswordPlaceholder = '';
 
   constructor() {
-    const finalPath = path.join(getDataPath(), 'aionui.db');
+    const finalPath = path.join(getDataPath(), 'foundry.db');
     console.log(`[Database] Initializing database at: ${finalPath}`);
 
     const dir = path.dirname(finalPath);
@@ -38,18 +38,15 @@ export class AionUIDatabase {
       this.initialize();
     } catch (error) {
       console.error('[Database] Failed to initialize, attempting recovery...', error);
-      // 尝试恢复：关闭并重新创建数据库
       // Try to recover by closing and recreating database
       try {
         if (this.db) {
           this.db.close();
         }
       } catch (e) {
-        // 忽略关闭错误
         // Ignore close errors
       }
 
-      // 备份损坏的数据库文件
       // Backup corrupted database file
       if (fs.existsSync(finalPath)) {
         const backupPath = `${finalPath}.backup.${Date.now()}`;
@@ -58,7 +55,6 @@ export class AionUIDatabase {
           console.log(`[Database] Backed up corrupted database to: ${backupPath}`);
         } catch (e) {
           console.error('[Database] Failed to backup corrupted database:', e);
-          // 备份失败则尝试直接删除
           // If backup fails, try to delete instead
           try {
             fs.unlinkSync(finalPath);
@@ -70,7 +66,6 @@ export class AionUIDatabase {
         }
       }
 
-      // 使用新数据库文件重试
       // Retry with fresh database file
       this.db = new BetterSqlite3(finalPath);
       this.initialize();
@@ -134,13 +129,11 @@ export class AionUIDatabase {
   /**
    * ==================
    * User operations
-   * 用户操作
    * ==================
    */
 
   /**
    * Create a new user in the database
-   * 在数据库中创建新用户
    *
    * @param username - Username (unique identifier)
    * @param email - User email (optional)
@@ -181,7 +174,6 @@ export class AionUIDatabase {
 
   /**
    * Get user by user ID
-   * 通过用户 ID 获取用户信息
    *
    * @param userId - User ID to query
    * @returns Query result with user data or error if not found
@@ -211,7 +203,6 @@ export class AionUIDatabase {
 
   /**
    * Get user by username (used for authentication)
-   * 通过用户名获取用户信息（用于身份验证）
    *
    * @param username - Username to query
    * @returns Query result with user data or null if not found
@@ -235,7 +226,6 @@ export class AionUIDatabase {
 
   /**
    * Get all users (excluding system default user)
-   * 获取所有用户（排除系统默认用户）
    *
    * @returns Query result with array of all users ordered by creation time
    */
@@ -259,7 +249,6 @@ export class AionUIDatabase {
 
   /**
    * Get total count of users (excluding system default user)
-   * 获取用户总数（排除系统默认用户）
    *
    * @returns Query result with user count
    */
@@ -283,13 +272,11 @@ export class AionUIDatabase {
 
   /**
    * Check if any users exist in the database
-   * 检查数据库中是否存在用户
    *
    * @returns Query result with boolean indicating if users exist
    */
   hasUsers(): IQueryResult<boolean> {
     try {
-      // 只统计已设置密码的账户，排除尚未完成初始化的占位行
       // Count only accounts with a non-empty password to ignore placeholder entries
       const stmt = this.db.prepare(`SELECT COUNT(*) as count FROM users WHERE password_hash IS NOT NULL AND TRIM(password_hash) != ''`);
       const row = stmt.get() as { count: number };
@@ -307,7 +294,6 @@ export class AionUIDatabase {
 
   /**
    * Update user's last login timestamp
-   * 更新用户的最后登录时间戳
    *
    * @param userId - User ID to update
    * @returns Query result with success status
@@ -331,7 +317,6 @@ export class AionUIDatabase {
 
   /**
    * Update user's password hash
-   * 更新用户的密码哈希
    *
    * @param userId - User ID to update
    * @param newPasswordHash - New hashed password (use bcrypt)
@@ -356,7 +341,6 @@ export class AionUIDatabase {
 
   /**
    * Update user's JWT secret
-   * 更新用户的 JWT secret
    */
   updateUserJwtSecret(userId: string, jwtSecret: string): IQueryResult<boolean> {
     try {
@@ -429,9 +413,8 @@ export class AionUIDatabase {
 
   /**
    * Get the latest conversation by source type
-   * 根据来源类型获取最新的会话
    */
-  getLatestConversationBySource(source: 'aionui' | 'telegram', userId?: string): IQueryResult<TChatConversation | null> {
+  getLatestConversationBySource(source: 'foundry' | 'telegram', userId?: string): IQueryResult<TChatConversation | null> {
     try {
       const finalUserId = userId || this.defaultUserId;
       const row = this.db
@@ -687,6 +670,51 @@ export class AionUIDatabase {
   }
 
   /**
+   * Delete all messages after a specific message (by created_at timestamp)
+   * Used for message editing - deletes subsequent messages when user edits an earlier message
+   */
+  deleteMessagesAfter(conversationId: string, afterTimestamp: number): IQueryResult<number> {
+    try {
+      const stmt = this.db.prepare('DELETE FROM messages WHERE conversation_id = ? AND created_at > ?');
+      const result = stmt.run(conversationId, afterTimestamp);
+
+      return {
+        success: true,
+        data: result.changes,
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.message,
+      };
+    }
+  }
+
+  /**
+   * Update a message's text content
+   * Used for message editing. Wraps content in JSON format for text messages.
+   */
+  updateMessageContent(messageId: string, content: string): IQueryResult<boolean> {
+    try {
+      // Content is stored as JSON in the database
+      // For text messages, the format is { content: "..." }
+      const jsonContent = JSON.stringify({ content });
+      const stmt = this.db.prepare('UPDATE messages SET content = ? WHERE id = ?');
+      const result = stmt.run(jsonContent, messageId);
+
+      return {
+        success: true,
+        data: result.changes > 0,
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.message,
+      };
+    }
+  }
+
+  /**
    * Get message by msg_id and conversation_id
    * Used for finding existing messages to update (e.g., streaming text accumulation)
    */
@@ -718,7 +746,6 @@ export class AionUIDatabase {
   /**
    * ==================
    * Channel Plugin operations
-   * 个人助手插件操作
    * ==================
    */
 
@@ -873,7 +900,6 @@ export class AionUIDatabase {
   /**
    * ==================
    * Channel User operations
-   * 个人助手用户操作
    * ==================
    */
 
@@ -948,7 +974,6 @@ export class AionUIDatabase {
   /**
    * ==================
    * Channel Session operations
-   * 个人助手会话操作
    * ==================
    */
 
@@ -1015,7 +1040,6 @@ export class AionUIDatabase {
   /**
    * ==================
    * Channel Pairing Code operations
-   * 个人助手配对码操作
    * ==================
    */
 
@@ -1097,11 +1121,11 @@ export class AionUIDatabase {
 }
 
 // Export singleton instance
-let dbInstance: AionUIDatabase | null = null;
+let dbInstance: FoundryDatabase | null = null;
 
-export function getDatabase(): AionUIDatabase {
+export function getDatabase(): FoundryDatabase {
   if (!dbInstance) {
-    dbInstance = new AionUIDatabase();
+    dbInstance = new FoundryDatabase();
   }
   return dbInstance;
 }

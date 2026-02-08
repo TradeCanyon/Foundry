@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright 2025 AionUi (aionui.com)
+ * Copyright 2025 Foundry (foundry.app)
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -27,7 +27,7 @@ export interface CreateCronJobParams {
 }
 
 /**
- * CronService - Core scheduling service for AionUI
+ * CronService - Core scheduling service for Foundry
  *
  * Manages scheduled tasks that send messages to conversations at specified times.
  * Handles conflicts when conversation is busy.
@@ -321,8 +321,6 @@ class CronService {
       // Get or build task from WorkerManage
       // For cron jobs, we need yoloMode=true (auto-approve)
       // If task already exists, kill it and create new one with yoloMode=true
-      // 对于定时任务，需要 yoloMode=true（自动批准）
-      // 如果任务实例已存在，先 kill 它，再创建新的 yoloMode=true 实例
       let task;
       try {
         // Check if task already exists in memory

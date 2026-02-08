@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright 2025 AionUi (aionui.com)
+ * Copyright 2025 Foundry (foundry.app)
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -33,12 +33,12 @@ export class CodexEventHandler {
   private processCodexEvent(msg: CodexEventMsg) {
     const type = msg.type;
 
-    //agent_reasoning 因为有 agent_reasoning_delta，所以忽略
+    // agent_reasoning is ignored because we have agent_reasoning_delta
     if (type === 'agent_reasoning') {
       return;
     }
 
-    // agent_message 是完整消息，用于最终持久化（但不发送到前端，避免重复显示）
+    // agent_message is the complete message, used for final persistence (not sent to frontend to avoid duplicate display)
     if (type === 'agent_message') {
       this.messageProcessor.processFinalMessage(msg);
       return;
@@ -68,7 +68,7 @@ export class CodexEventHandler {
     }
 
     if (this.isMessageType(msg, 'agent_reasoning_section_break')) {
-      // 思考过程中断了
+      // Thinking process was interrupted
       this.messageProcessor.processReasonSectionBreak();
       return;
     }
@@ -192,7 +192,7 @@ export class CodexEventHandler {
     const options = createPermissionOptionsForType(PermissionType.COMMAND_EXECUTION);
     const description = msg.reason || `${displayInfo.icon} Codex wants to execute command: ${Array.isArray(msg.command) ? msg.command.join(' ') : msg.command}`;
 
-    // 通过 addConfirmation 统一管理确认项
+    // Use addConfirmation to manage confirmation items uniformly
     this.messageEmitter.addConfirmation({
       title: displayInfo.titleKey,
       id: unifiedRequestId,
@@ -205,7 +205,7 @@ export class CodexEventHandler {
       })),
     });
 
-    // 权限请求需要持久化
+    // Permission requests need to be persisted
     this.messageEmitter.emitAndPersistMessage(
       {
         type: 'codex_permission',
@@ -219,7 +219,7 @@ export class CodexEventHandler {
           sessionId: '',
           options: options,
           requestId: callId,
-          data: msg, // 直接使用原始事件数据
+          data: msg, // Use original event data directly
         },
       },
       true
@@ -264,7 +264,7 @@ export class CodexEventHandler {
     const options = createPermissionOptionsForType(PermissionType.FILE_WRITE);
     const description = msg.message || `${displayInfo.icon} Codex wants to apply proposed code changes`;
 
-    // 通过 addConfirmation 统一管理确认项
+    // Use addConfirmation to manage confirmation items uniformly
     this.messageEmitter.addConfirmation({
       title: displayInfo.titleKey,
       id: unifiedRequestId,
@@ -290,7 +290,7 @@ export class CodexEventHandler {
           sessionId: '',
           options: options,
           requestId: callId,
-          data: msg, // 直接使用原始事件数据
+          data: msg, // Use original event data directly
         },
       },
       true

@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright 2025 AionUi (aionui.com)
+ * Copyright 2025 Foundry (foundry.app)
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -32,13 +32,13 @@ export class ClientFactory {
           baseURL: provider.baseUrl,
           timeout: options.timeout,
           defaultHeaders: {
-            'HTTP-Referer': 'https://aionui.com',
-            'X-Title': 'AionUi',
+            'HTTP-Referer': 'https://foundry.app',
+            'X-Title': 'Foundry',
           },
           ...(options.baseConfig as OpenAIClientConfig),
         };
 
-        // 添加代理配置（如果提供）
+        // Add proxy configuration if provided
         if (options.proxy) {
           const { HttpsProxyAgent } = await import('https-proxy-agent');
           clientConfig.httpAgent = new HttpsProxyAgent(options.proxy);
@@ -79,18 +79,18 @@ export class ClientFactory {
       }
 
       default: {
-        // 默认使用OpenAI兼容协议
+        // Default to OpenAI-compatible protocol
         const clientConfig: OpenAIClientConfig = {
           baseURL: provider.baseUrl,
           timeout: options.timeout,
           defaultHeaders: {
-            'HTTP-Referer': 'https://aionui.com',
-            'X-Title': 'AionUi',
+            'HTTP-Referer': 'https://foundry.app',
+            'X-Title': 'Foundry',
           },
           ...(options.baseConfig as OpenAIClientConfig),
         };
 
-        // 添加代理配置（如果提供）
+        // Add proxy configuration if provided
         if (options.proxy) {
           const { HttpsProxyAgent } = await import('https-proxy-agent');
           clientConfig.httpAgent = new HttpsProxyAgent(options.proxy);

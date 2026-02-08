@@ -11,6 +11,7 @@ import GeminiSettings from './pages/settings/GeminiSettings';
 import ModeSettings from './pages/settings/ModeSettings';
 import SystemSettings from './pages/settings/SystemSettings';
 import ToolsSettings from './pages/settings/ToolsSettings';
+// import ImageSettings from './pages/settings/ImageSettings'; // Shelved
 import WebuiSettings from './pages/settings/WebuiSettings';
 import LoginPage from './pages/login';
 import ComponentsShowcase from './pages/test/ComponentsShowcase';

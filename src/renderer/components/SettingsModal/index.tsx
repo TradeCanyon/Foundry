@@ -1,11 +1,11 @@
 /**
  * @license
- * Copyright 2025 AionUi (aionui.com)
+ * Copyright 2025 Foundry (foundry.app)
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import AionModal from '@/renderer/components/base/AionModal';
-import AionScrollArea from '@/renderer/components/base/AionScrollArea';
+import FoundryModal from '@/renderer/components/base/FoundryModal';
+import FoundryScrollArea from '@/renderer/components/base/FoundryScrollArea';
 import { iconColors } from '@/renderer/theme/colors';
 import { isElectronDesktop } from '@/renderer/utils/platform';
 import { Tabs } from '@arco-design/web-react';
@@ -19,100 +19,100 @@ import GeminiModalContent from './contents/GeminiModalContent';
 import ModelModalContent from './contents/ModelModalContent';
 import SystemModalContent from './contents/SystemModalContent';
 import ToolsModalContent from './contents/ToolsModalContent';
+// import ImageModalContent from './contents/ImageModalContent'; // Shelved
 import WebuiModalContent from './contents/WebuiModalContent';
 import { SettingsViewModeProvider } from './settingsViewContext';
 
-// ==================== 常量定义 / Constants ====================
+// ==================== Constants ====================
 
-/** 移动端断点（px）/ Mobile breakpoint (px) */
+/** Mobile breakpoint (px) */
 const MOBILE_BREAKPOINT = 768;
 
-/** 侧边栏宽度（px）/ Sidebar width (px) */
+/** Sidebar width (px) */
 const SIDEBAR_WIDTH = 200;
 
-/** Modal 宽度配置 / Modal width configuration */
+/** Modal width configuration */
 const MODAL_WIDTH = {
   mobile: 560,
   desktop: 880,
 } as const;
 
-/** Modal 高度配置 / Modal height configuration */
+/** Modal height configuration */
 const MODAL_HEIGHT = {
   mobile: '90vh',
   mobileContent: 'calc(90vh - 80px)',
   desktop: 459,
 } as const;
 
-/** Resize 事件防抖延迟（ms）/ Resize event debounce delay (ms) */
+/** Resize event debounce delay (ms) */
 const RESIZE_DEBOUNCE_DELAY = 150;
 
-// ==================== 类型定义 / Type Definitions ====================
+// ==================== Type Definitions ====================
 
 /**
- * 设置标签页类型 / Settings tab type
+ * Settings tab type
  */
-export type SettingTab = 'gemini' | 'model' | 'agent' | 'tools' | 'webui' | 'system' | 'about';
+export type SettingTab = 'gemini' | 'model' | 'agent' | 'tools' | 'image' | 'webui' | 'system' | 'about';
 
 /**
- * 设置弹窗组件属性 / Settings modal component props
+ * Settings modal component props
  */
 interface SettingsModalProps {
-  /** 弹窗显示状态 / Modal visibility state */
+  /** Modal visibility state */
   visible: boolean;
-  /** 关闭回调 / Close callback */
+  /** Close callback */
   onCancel: () => void;
-  /** 默认选中的标签页 / Default selected tab */
+  /** Default selected tab */
   defaultTab?: SettingTab;
 }
 
 /**
- * 二级弹窗组件属性 / Secondary modal component props
+ * Secondary modal component props
  */
 interface SubModalProps {
-  /** 弹窗显示状态 / Modal visibility state */
+  /** Modal visibility state */
   visible: boolean;
-  /** 关闭回调 / Close callback */
+  /** Close callback */
   onCancel: () => void;
-  /** 弹窗标题 / Modal title */
+  /** Modal title */
   title?: string;
-  /** 子元素 / Children elements */
+  /** Children elements */
   children: React.ReactNode;
 }
 
 /**
- * 二级弹窗组件 / Secondary modal component
- * 用于设置页面中的次级对话框 / Used for secondary dialogs in settings page
+ * Secondary modal component
+ * Used for secondary dialogs in settings page
  *
  * @example
  * ```tsx
- * <SubModal visible={showModal} onCancel={handleClose} title="详情">
- *   <div>弹窗内容</div>
+ * <SubModal visible={showModal} onCancel={handleClose} title="Details">
+ *   <div>Modal content</div>
  * </SubModal>
  * ```
  */
 export const SubModal: React.FC<SubModalProps> = ({ visible, onCancel, title, children }) => {
   return (
-    <AionModal visible={visible} onCancel={onCancel} footer={null} className='settings-sub-modal' size='medium' title={title}>
-      <AionScrollArea className='h-full px-20px pb-16px text-14px text-t-primary'>{children}</AionScrollArea>
-    </AionModal>
+    <FoundryModal visible={visible} onCancel={onCancel} footer={null} className='settings-sub-modal' size='medium' title={title}>
+      <FoundryScrollArea className='h-full px-20px pb-16px text-14px text-t-primary'>{children}</FoundryScrollArea>
+    </FoundryModal>
   );
 };
 
 /**
- * 主设置弹窗组件 / Main settings modal component
+ * Main settings modal component
  *
- * 提供应用的全局设置界面，包括 Gemini、模型、工具、系统和关于等多个标签页
  * Provides global settings interface with multiple tabs including Gemini, Model, Tools, System and About
  *
  * @features
- * - 响应式设计，移动端使用下拉菜单，桌面端使用侧边栏 / Responsive design with dropdown on mobile and sidebar on desktop
- * - 防抖优化的窗口尺寸监听 / Debounced window resize listener
- * - 标签页状态管理 / Tab state management
+ * - Responsive design with dropdown on mobile and sidebar on desktop
+ * - Debounced window resize listener
+ * - Tab state management
  *
  * @example
  * ```tsx
  * const { openSettings, settingsModal } = useSettingsModal();
- * // 打开设置弹窗并跳转到系统设置 / Open settings modal and navigate to system tab
+ * // Open settings modal and navigate to system tab
  * openSettings('system');
  * ```
  */
@@ -123,19 +123,18 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ visible, onCancel, defaul
   const resizeTimerRef = useRef<number | undefined>(undefined);
 
   /**
-   * 处理窗口尺寸变化，更新移动端状态
    * Handle window resize and update mobile state
    */
   const handleResize = useCallback(() => {
     setIsMobile(window.innerWidth < MOBILE_BREAKPOINT);
   }, []);
 
-  // 监听窗口尺寸变化（带防抖）/ Listen to window resize (with debounce)
+  // Listen to window resize (with debounce)
   useEffect(() => {
-    // 初始化移动端状态 / Initialize mobile state
+    // Initialize mobile state
     handleResize();
 
-    // 带防抖的 resize 处理器 / Debounced resize handler
+    // Debounced resize handler
     const debouncedResize = () => {
       if (resizeTimerRef.current) {
         window.clearTimeout(resizeTimerRef.current);
@@ -152,11 +151,11 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ visible, onCancel, defaul
     };
   }, [handleResize]);
 
-  // 检测是否在 Electron 桌面环境 / Check if running in Electron desktop environment
+  // Check if running in Electron desktop environment
   const isDesktop = isElectronDesktop();
 
-  // 菜单项配置 / Menu items configuration
-  // WebUI 选项仅在桌面端显示，防止越权访问 / WebUI option only shown on desktop to prevent unauthorized access
+  // Menu items configuration
+  // WebUI option only shown on desktop to prevent unauthorized access
   const menuItems = useMemo((): Array<{ key: SettingTab; label: string; icon: React.ReactNode }> => {
     const items: Array<{ key: SettingTab; label: string; icon: React.ReactNode }> = [
       {
@@ -176,7 +175,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ visible, onCancel, defaul
       },
     ];
 
-    // 仅在桌面端添加 WebUI 选项（包含 Assistant 配置）/ Only add WebUI option on desktop (includes Assistant config)
+    // Only add WebUI option on desktop (includes Assistant config)
     if (isDesktop) {
       items.push({
         key: 'webui',
@@ -203,7 +202,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ visible, onCancel, defaul
 
   console.log('%c [  ]-211', 'font-size:13px; background:pink; color:#bf2c9f;', isDesktop, menuItems);
 
-  // 渲染当前选中的设置内容 / Render current selected settings content
+  // Render current selected settings content
   const renderContent = () => {
     switch (activeTab) {
       case 'gemini':
@@ -214,6 +213,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ visible, onCancel, defaul
         return <AgentModalContent />;
       case 'tools':
         return <ToolsModalContent />;
+      // case 'image': return <ImageModalContent />; // Shelved
       case 'webui':
         return <WebuiModalContent />;
       case 'system':
@@ -226,14 +226,14 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ visible, onCancel, defaul
   };
 
   /**
-   * 切换标签页 / Switch tab
-   * @param tab - 目标标签页 / Target tab
+   * Switch tab
+   * @param tab - Target tab
    */
   const handleTabChange = useCallback((tab: SettingTab) => {
     setActiveTab(tab);
   }, []);
 
-  // 移动端菜单（Tabs切换）/ Mobile menu (Tabs)
+  // Mobile menu (Tabs)
   const mobileMenu = (
     <div className='mt-16px mb-20px'>
       <Tabs activeTab={activeTab} onChange={handleTabChange} type='line' size='default' className='settings-mobile-tabs [&_.arco-tabs-nav]:border-b-0'>
@@ -244,9 +244,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ visible, onCancel, defaul
     </div>
   );
 
-  // 桌面端菜单（侧边栏）/ Desktop menu (sidebar)
+  // Desktop menu (sidebar)
   const desktopMenu = (
-    <AionScrollArea className='flex-shrink-0 b-color-border-2 scrollbar-hide' style={{ width: `${SIDEBAR_WIDTH}px` }}>
+    <FoundryScrollArea className='flex-shrink-0 b-color-border-2 scrollbar-hide' style={{ width: `${SIDEBAR_WIDTH}px` }}>
       <div className='flex flex-col gap-2px'>
         {menuItems.map((item) => (
           <div
@@ -262,12 +262,12 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ visible, onCancel, defaul
           </div>
         ))}
       </div>
-    </AionScrollArea>
+    </FoundryScrollArea>
   );
 
   return (
     <SettingsViewModeProvider value='modal'>
-      <AionModal
+      <FoundryModal
         visible={visible}
         onCancel={onCancel}
         footer={null}
@@ -289,9 +289,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ visible, onCancel, defaul
         >
           {isMobile ? mobileMenu : desktopMenu}
 
-          <AionScrollArea className={classNames('flex-1 min-h-0', isMobile ? 'overflow-y-auto' : 'flex flex-col pl-24px gap-16px')}>{renderContent()}</AionScrollArea>
+          <FoundryScrollArea className={classNames('flex-1 min-h-0', isMobile ? 'overflow-y-auto' : 'flex flex-col pl-24px gap-16px')}>{renderContent()}</FoundryScrollArea>
         </div>
-      </AionModal>
+      </FoundryModal>
     </SettingsViewModeProvider>
   );
 };

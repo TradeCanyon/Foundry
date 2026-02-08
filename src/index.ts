@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright 2025 AionUi (aionui.com)
+ * Copyright 2025 Foundry (foundry.app)
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -28,7 +28,7 @@ declare const MAIN_WINDOW_WEBPACK_ENTRY: string;
 declare const MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY: string;
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
-// 修复 macOS 和 Linux 下 GUI 应用的 PATH 环境变量,使其与命令行一致
+// Fix PATH environment variable for GUI apps on macOS and Linux to match command-line
 if (process.platform === 'darwin' || process.platform === 'linux') {
   fixPath();
 
@@ -57,22 +57,17 @@ if (electronSquirrelStartup) {
   app.quit();
 }
 
-// 主进程全局错误处理器
 // Global error handlers for main process
-// 捕获未处理的同步异常，防止显示 Electron 默认错误对话框
 // Catch uncaught synchronous exceptions to prevent Electron's default error dialog
 process.on('uncaughtException', (_error) => {
-  // 在生产环境中，可以将错误记录到文件或上报到错误追踪服务
   // In production, errors can be logged to file or sent to error tracking service
   if (process.env.NODE_ENV !== 'development') {
     // TODO: Add error logging or reporting
   }
 });
 
-// 捕获未处理的 Promise 拒绝，避免应用崩溃
 // Catch unhandled Promise rejections to prevent app crashes
 process.on('unhandledRejection', (_reason, _promise) => {
-  // 可以在这里添加错误上报逻辑
   // Error reporting logic can be added here
 });
 
@@ -139,7 +134,7 @@ const resolveWebUIPort = (config: WebUIUserConfig): number => {
   const cliPort = parsePortValue(getSwitchValue('port') ?? getSwitchValue('webui-port'), 'CLI (--port)');
   if (cliPort) return cliPort;
 
-  const envPort = parsePortValue(process.env.AIONUI_PORT ?? process.env.PORT, 'environment variable (AIONUI_PORT/PORT)');
+  const envPort = parsePortValue(process.env.FOUNDRY_PORT ?? process.env.PORT, 'environment variable (FOUNDRY_PORT/PORT)');
   if (envPort) return envPort;
 
   const configPort = parsePortValue(config.port, 'webui.config.json');
@@ -157,8 +152,8 @@ const parseBooleanEnv = (value?: string): boolean | null => {
 };
 
 const resolveRemoteAccess = (config: WebUIUserConfig): boolean => {
-  const envRemote = parseBooleanEnv(process.env.AIONUI_ALLOW_REMOTE || process.env.AIONUI_REMOTE);
-  const hostHint = process.env.AIONUI_HOST?.trim();
+  const envRemote = parseBooleanEnv(process.env.FOUNDRY_ALLOW_REMOTE || process.env.FOUNDRY_REMOTE);
+  const hostHint = process.env.FOUNDRY_HOST?.trim();
   const hostRequestsRemote = hostHint ? ['0.0.0.0', '::', '::0'].includes(hostHint) : false;
   const configRemote = config.allowRemote === true;
 
@@ -204,7 +199,7 @@ const createWindow = (): void => {
     autoHideMenuBar: true,
     // Set icon for Windows/Linux in development mode
     ...(devIcon && process.platform !== 'darwin' ? { icon: devIcon } : {}),
-    // Custom titlebar configuration / 自定义标题栏配置
+    // Custom titlebar configuration
     ...(process.platform === 'darwin'
       ? {
           titleBarStyle: 'hidden',
@@ -213,7 +208,7 @@ const createWindow = (): void => {
       : { frame: false }),
     webPreferences: {
       preload: MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY,
-      webviewTag: true, // 启用 webview 标签用于 HTML 预览 / Enable webview tag for HTML preview
+      webviewTag: true, // Enable webview tag for HTML preview
     },
   });
 
@@ -227,8 +222,7 @@ const createWindow = (): void => {
     // Error loading main window URL
   });
 
-  // 只在开发环境自动打开 DevTools / Only auto-open DevTools in development
-  // 使用 app.isPackaged 判断更可靠，打包后的应用不会自动打开 DevTools
+  // Only auto-open DevTools in development
   // Using app.isPackaged is more reliable, packaged apps won't auto-open DevTools
   if (!app.isPackaged) {
     mainWindow.webContents.openDevTools();
@@ -273,7 +267,6 @@ const handleAppReady = async (): Promise<void> => {
     // Handle password reset without creating window
     try {
       // Get username argument, filtering out flags (--xxx)
-      // 获取用户名参数，过滤掉标志（--xxx）
       const resetPasswordIndex = process.argv.indexOf('--resetpass');
       const argsAfterCommand = process.argv.slice(resetPasswordIndex + 1);
       const username = argsAfterCommand.find((arg) => !arg.startsWith('--')) || 'admin';
@@ -298,7 +291,7 @@ const handleAppReady = async (): Promise<void> => {
     createWindow();
   }
 
-  // 启动时初始化ACP检测器 (skip in --resetpass mode)
+  // Initialize ACP detector at startup (skip in --resetpass mode)
   if (!isResetPasswordMode) {
     await initializeAcpDetector();
   }
@@ -332,7 +325,7 @@ app.on('activate', () => {
 });
 
 app.on('before-quit', async () => {
-  // 在应用退出前清理工作进程
+  // Clean up worker processes before app quits
   WorkerManage.clear();
 
   // Shutdown Channel subsystem

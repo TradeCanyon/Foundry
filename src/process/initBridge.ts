@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright 2025 AionUi (aionui.com)
+ * Copyright 2025 Foundry (foundry.app)
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -10,7 +10,7 @@ import { cronService } from '@process/services/cron/CronService';
 
 logger.config({ print: true });
 
-// 初始化所有IPC桥接
+// Initialize all IPC bridges
 initAllBridges();
 
 // Initialize cron service (load jobs from database and start timers)

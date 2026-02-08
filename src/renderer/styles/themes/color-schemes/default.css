@@ -1,140 +1,156 @@
-/* Default Color Scheme - AOU Purple Theme */
+/* Foundry Color Scheme - Clean Slate */
+/* Neutral grays with orange accents - inspired by Notion/CurseForge */
 
 /* Light Mode */
 :root,
 [data-color-scheme='default'] {
-  /* AOU Brand Colors - Light Mode */
-  --aou-1: #eff0f6;
-  --aou-2: #e5e7f0;
-  --aou-3: #d1d5e5;
-  --aou-4: #b5bcd6;
-  --aou-5: #97a0c5;
-  --aou-6: #7583b2;
-  --aou-7: #596590;
-  --aou-8: #3f4868;
-  --aou-9: #262c41;
-  --aou-10: #0d101c;
+  /* Foundry Brand Colors - Orange accent scale */
+  --aou-1: #fff7f5;
+  --aou-2: #ffebe5;
+  --aou-3: #ffd6cc;
+  --aou-4: #ffb8a6;
+  --aou-5: #ff9980;
+  --aou-6: #ff6b35; /* Primary Foundry Orange */
+  --aou-7: #e55a2b;
+  --aou-8: #c44a22;
+  --aou-9: #993a1a;
+  --aou-10: #662810;
 
-  /* Background Colors - Light Mode */
-  --bg-base: #ffffff; /* bg-0 - 主背景 */
-  --bg-1: #f7f8fa; /* 次级背景 */
-  --bg-2: #f2f3f5; /* 三级背景 */
-  --bg-3: #e5e6eb; /* 边框/分隔 */
-  --bg-4: #c9cdd4;
-  --bg-5: #adb4c1;
-  --bg-6: #86909c; /* 禁用/次要文字 */
-  --bg-8: #4e5969;
-  --bg-9: #1d2129;
-  --bg-10: #0c0e12;
+  /* Background Colors - Clean neutral grays */
+  --bg-base: #ffffff;
+  --bg-1: #fafafa;
+  --bg-2: #f5f5f5;
+  --bg-3: #eeeeee;
+  --bg-4: #e0e0e0;
+  --bg-5: #bdbdbd;
+  --bg-6: #9e9e9e;
+  --bg-8: #616161;
+  --bg-9: #424242;
+  --bg-10: #212121;
 
-  /* Interactive State Colors - Light Mode */
-  --bg-hover: #f3f4f6; /* 悬停背景 - 在 bg-1 和 bg-2 之间 */
-  --bg-active: #e5e6eb; /* 激活/按下背景 */
+  /* Interactive State Colors */
+  --bg-hover: #f5f5f5;
+  --bg-active: #eeeeee;
 
-  /* Text Colors - Light Mode */
-  --text-primary: #1d2129; /* 主要文字 */
-  --text-secondary: #86909c; /* 次要文字 */
-  --text-disabled: #c9cdd4; /* 禁用文字 */
+  /* Text Colors - Crisp contrast */
+  --text-primary: #1a1a1a;
+  --text-secondary: #666666;
+  --text-disabled: #b0b0b0;
 
-  /* Semantic Colors - Light Mode */
-  --primary: #165dff;
-  --success: #00b42a;
-  --warning: #ff7d00;
-  --danger: #f53f3f;
-  --info: #165dff;
+  /* Semantic Colors - Orange primary, standard semantics */
+  --primary: #ff6b35;
+  --success: #22c55e;
+  --warning: #f59e0b;
+  --danger: #ef4444;
+  --info: #3b82f6;
 
-  /* Border Colors - Light Mode */
-  --border-base: #e5e6eb; /* 基础边框 */
-  --border-light: #f2f3f5; /* 浅色边框 */
+  /* Border Colors */
+  --border-base: #e5e5e5;
+  --border-light: #f0f0f0;
 
-  /* Brand Colors - Light Mode */
-  --brand: #7583b2; /* 品牌色 */
-  --brand-light: #eff0f6; /* 品牌浅色背景 */
-  --brand-hover: #b5bcd6; /* 品牌色悬停 */
+  /* Brand Colors */
+  --brand: #ff6b35;
+  --brand-light: #fff7f5;
+  --brand-hover: #e55a2b;
 
-  /* Message & UI Component Colors - Light Mode */
-  --message-user-bg: #e9efff; /* 用户消息背景（浅蓝） */
-  --message-tips-bg: #f0f4ff; /* 提示信息背景（浅蓝） */
-  --workspace-btn-bg: #eff0f1; /* 工作区按钮背景 */
+  /* Message & UI Component Colors */
+  --message-user-bg: #f8f8f8;
+  --message-tips-bg: #fafafa;
+  --workspace-btn-bg: #f5f5f5;
 
-  /* Special Colors - Light Mode */
-  --fill: #f7f8fa; /* 填充色 */
-  --inverse: #ffffff; /* 反色（黑白切换）*/
+  /* Special Colors */
+  --fill: #fafafa;
+  --inverse: #ffffff;
 
-  /* Custom Colors - Light Mode */
-  --dialog-fill-0: #ffffff; /* 对话框填充色 */
-  --text-0: #000000; /* 纯黑文字色 */
-  --text-white: #ffffff; /* 纯白文字色 */
-  --fill-0: #ffffff; /* 填充色 0 */
-  --fill-white-to-black: #ffffff; /* 白到黑填充色 */
-  --border-special: var(--bg-3); /* 特殊边框色 */
+  /* Custom Colors */
+  --dialog-fill-0: #ffffff;
+  --text-0: #000000;
+  --text-white: #ffffff;
+  --fill-0: #ffffff;
+  --fill-white-to-black: #ffffff;
+  --border-special: #e0e0e0;
+
+  /* Arco Design Overrides */
+  --color-primary: #ff6b35;
+  --color-primary-light-1: #fff7f5;
+  --color-primary-light-2: #ffebe5;
+  --color-primary-light-3: #ffd6cc;
+  --color-primary-light-4: #ffb8a6;
 }
 
-/* Dark Mode */
-[data-color-scheme='default'][data-theme='dark'] {
-  /* AOU Brand Colors - Dark Mode */
-  --aou-1: #2a2a2a;
-  --aou-2: #3d4150;
-  --aou-3: #525a77;
-  --aou-4: #6a749b;
-  --aou-5: #838fba;
-  --aou-6: #a1aacb;
-  --aou-7: #b5bcd6;
-  --aou-8: #d1d5e5;
-  --aou-9: #e5e7f0;
-  --aou-10: #eff0f6;
+/* Dark Mode - Clean dark with orange accents */
+[data-color-scheme='default'][data-theme='dark'],
+[data-theme='dark'] {
+  /* Foundry Brand Colors - Dark Mode */
+  --aou-1: #1a1a1a;
+  --aou-2: #262626;
+  --aou-3: #333333;
+  --aou-4: #444444;
+  --aou-5: #666666;
+  --aou-6: #ff6b35; /* Primary stays vibrant */
+  --aou-7: #ff8255;
+  --aou-8: #ff9973;
+  --aou-9: #ffb399;
+  --aou-10: #ffccb3;
 
-  /* Background Colors - Dark Mode */
-  --bg-base: #0e0e0e; /* 主背景 */
-  --bg-1: #1a1a1a; /* 次级背景 */
-  --bg-2: #262626; /* 三级背景 */
-  --bg-3: #333333; /* 边框/分隔 */
-  --bg-4: #404040;
-  --bg-5: #4d4d4d;
-  --bg-6: #5a5a5a; /* 禁用/次要文字 */
-  --bg-8: #737373;
-  --bg-9: #a6a6a6;
-  --bg-10: #d9d9d9;
+  /* Background Colors - Clean dark grays */
+  --bg-base: #0d0d0d;
+  --bg-1: #141414;
+  --bg-2: #1a1a1a;
+  --bg-3: #262626;
+  --bg-4: #333333;
+  --bg-5: #444444;
+  --bg-6: #666666;
+  --bg-8: #888888;
+  --bg-9: #aaaaaa;
+  --bg-10: #cccccc;
 
-  /* Interactive State Colors - Dark Mode */
-  --bg-hover: #1f1f1f; /* 悬停背景 */
-  --bg-active: #2d2d2d; /* 激活/按下背景 */
+  /* Interactive State Colors */
+  --bg-hover: #1f1f1f;
+  --bg-active: #2a2a2a;
 
-  /* Text Colors - Dark Mode */
-  --text-primary: #e5e5e5; /* 主要文字 */
-  --text-secondary: #a6a6a6; /* 次要文字 */
-  --text-disabled: #737373; /* 禁用文字 */
+  /* Text Colors */
+  --text-primary: #f0f0f0;
+  --text-secondary: #999999;
+  --text-disabled: #555555;
 
-  /* Semantic Colors - Dark Mode */
-  --primary: #4d9fff;
-  --success: #23c343;
-  --warning: #ff9a2e;
-  --danger: #f76560;
-  --info: #4d9fff;
+  /* Semantic Colors */
+  --primary: #ff6b35;
+  --success: #22c55e;
+  --warning: #f59e0b;
+  --danger: #ef4444;
+  --info: #60a5fa;
 
-  /* Border Colors - Dark Mode */
-  --border-base: #333333; /* 基础边框 */
-  --border-light: #262626; /* 浅色边框 */
+  /* Border Colors */
+  --border-base: #333333;
+  --border-light: #262626;
 
-  /* Brand Colors - Dark Mode */
-  --brand: #a1aacb; /* 品牌色 */
-  --brand-light: #3d4150; /* 品牌深色背景 */
-  --brand-hover: #6a749b; /* 品牌色悬停 */
+  /* Brand Colors */
+  --brand: #ff6b35;
+  --brand-light: #1f1612;
+  --brand-hover: #ff8255;
 
-  /* Message & UI Component Colors - Dark Mode */
-  --message-user-bg: #1e2a3a; /* 用户消息背景（深蓝灰） */
-  --message-tips-bg: #1a2333; /* 提示信息背景（深蓝灰） */
-  --workspace-btn-bg: #1f1f1f; /* 工作区按钮背景 */
+  /* Message & UI Component Colors */
+  --message-user-bg: #1a1a1a;
+  --message-tips-bg: #141414;
+  --workspace-btn-bg: #1a1a1a;
 
-  /* Special Colors - Dark Mode */
-  --fill: #1a1a1a; /* 填充色 */
-  --inverse: #ffffff; /* 反色（黑白切换）*/
+  /* Special Colors */
+  --fill: #141414;
+  --inverse: #ffffff;
 
-  /* Custom Colors - Dark Mode */
-  --dialog-fill-0: #333333; /* 对话框填充色 */
-  --text-0: #ffffff; /* 纯黑文字色（暗色模式下为白色） */
-  --text-white: #ffffff; /* 纯白文字色 */
-  --fill-0: rgba(255, 255, 255, 0.08); /* 填充色 0 - 暗色模式下为半透明白色 */
-  --fill-white-to-black: #000000; /* 白到黑填充色（暗色模式下为黑色） */
-  --border-special: #60677e; /* 特殊边框色 */
+  /* Custom Colors */
+  --dialog-fill-0: #262626;
+  --text-0: #ffffff;
+  --text-white: #ffffff;
+  --fill-0: rgba(255, 107, 53, 0.08);
+  --fill-white-to-black: #0a0a0a;
+  --border-special: #444444;
+
+  /* Arco Design Overrides */
+  --color-primary: #ff6b35;
+  --color-primary-light-1: #1f1612;
+  --color-primary-light-2: #2a1f1a;
+  --color-primary-light-3: #3d2d24;
+  --color-primary-light-4: #5c4538;
 }

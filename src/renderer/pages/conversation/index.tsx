@@ -16,7 +16,6 @@ const ChatConversationIndex: React.FC = () => {
   useEffect(() => {
     if (!id) return;
 
-    // 切换会话时自动关闭预览面板，避免跨会话残留
     // Ensure preview panel closes when switching conversations
     if (previousConversationIdRef.current && previousConversationIdRef.current !== id) {
       closePreview();
@@ -29,7 +28,6 @@ const ChatConversationIndex: React.FC = () => {
     return ipcBridge.conversation.get.invoke({ id });
   });
 
-  // 当会话数据加载完成后，自动打开 tab
   // Automatically open tab when conversation data is loaded
   useEffect(() => {
     if (data) {

@@ -12,7 +12,7 @@ const SettingsSider: React.FC<{ collapsed?: boolean }> = ({ collapsed = false })
   const { t } = useTranslation();
   const { pathname } = useLocation();
 
-  // 检测是否在 Electron 桌面环境 / Check if running in Electron desktop environment
+  // Check if running in Electron desktop environment
   const isDesktop = isElectronDesktop();
 
   const menus = useMemo(() => {
@@ -44,7 +44,7 @@ const SettingsSider: React.FC<{ collapsed?: boolean }> = ({ collapsed = false })
       },
     ];
 
-    // 仅在桌面端添加 WebUI 选项（包含 Assistant 配置）/ Only add WebUI option on desktop (includes Assistant config)
+    // Only add WebUI option on desktop (includes Assistant config)
     if (isDesktop) {
       items.push({
         label: t('settings.webui'),

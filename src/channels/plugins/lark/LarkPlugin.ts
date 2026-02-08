@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright 2025 AionUi (aionui.com)
+ * Copyright 2025 Foundry (foundry.app)
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -178,7 +178,7 @@ export class LarkPlugin extends BasePlugin {
     if (!this.botInfo) return null;
     return {
       id: this.botInfo.appId,
-      displayName: this.botInfo.name || 'Aion Assistant',
+      displayName: this.botInfo.name || 'Foundry Assistant',
     };
   }
 

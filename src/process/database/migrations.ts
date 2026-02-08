@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright 2025 AionUi (aionui.com)
+ * Copyright 2025 Foundry (foundry.app)
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -252,7 +252,7 @@ const migration_v7: IMigration = {
 
 /**
  * Migration v7 -> v8: Add source column to conversations table
- * 为 conversations 表添加 source 列，标识会话来源
+ * Identifies conversation source
  */
 const migration_v8: IMigration = {
   version: 8,
@@ -260,7 +260,7 @@ const migration_v8: IMigration = {
   up: (db) => {
     // Add source column to conversations table
     db.exec(`
-      ALTER TABLE conversations ADD COLUMN source TEXT CHECK(source IN ('aionui', 'telegram'));
+      ALTER TABLE conversations ADD COLUMN source TEXT CHECK(source IN ('foundry', 'telegram'));
     `);
 
     // Create index for efficient source-based queries
@@ -347,7 +347,6 @@ const migration_v9: IMigration = {
 
 /**
  * Migration v9 -> v10: Add 'lark' to assistant_plugins type constraint
- * 为 assistant_plugins 表的 type 约束添加 'lark' 类型
  */
 const migration_v10: IMigration = {
   version: 10,
@@ -414,9 +413,136 @@ const migration_v10: IMigration = {
 };
 
 /**
+ * Migration v10 -> v11: Fix source column case sensitivity
+ * Update 'Foundry' to 'foundry' and fix the CHECK constraint
+ */
+const migration_v11: IMigration = {
+  version: 11,
+  name: 'Fix source column case sensitivity',
+  up: (db) => {
+    // SQLite doesn't support modifying CHECK constraints directly
+    // We need to recreate the table with the correct constraint
+    db.exec(`
+      -- Update any existing 'Foundry' values to 'foundry'
+      UPDATE conversations SET source = 'foundry' WHERE source = 'Foundry';
+
+      -- Create new table with correct constraint (lowercase 'foundry')
+      CREATE TABLE IF NOT EXISTS conversations_new (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        name TEXT NOT NULL,
+        type TEXT NOT NULL CHECK(type IN ('gemini', 'acp', 'codex')),
+        extra TEXT NOT NULL,
+        model TEXT,
+        status TEXT CHECK(status IN ('pending', 'running', 'finished')),
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL,
+        source TEXT CHECK(source IN ('foundry', 'telegram')),
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      );
+
+      -- Copy data from old table
+      INSERT INTO conversations_new SELECT id, user_id, name, type, extra, model, status, created_at, updated_at, source FROM conversations;
+
+      -- Drop old table
+      DROP TABLE conversations;
+
+      -- Rename new table
+      ALTER TABLE conversations_new RENAME TO conversations;
+
+      -- Recreate all indexes
+      CREATE INDEX IF NOT EXISTS idx_conversations_user_id ON conversations(user_id);
+      CREATE INDEX IF NOT EXISTS idx_conversations_updated_at ON conversations(updated_at);
+      CREATE INDEX IF NOT EXISTS idx_conversations_type ON conversations(type);
+      CREATE INDEX IF NOT EXISTS idx_conversations_user_updated ON conversations(user_id, updated_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_conversations_source ON conversations(source);
+      CREATE INDEX IF NOT EXISTS idx_conversations_source_updated ON conversations(source, updated_at DESC);
+    `);
+
+    console.log('[Migration v11] Fixed source column case sensitivity (Foundry -> foundry)');
+  },
+  down: (db) => {
+    // No real rollback needed - lowercase is correct
+    console.log('[Migration v11] Rolled back: No action needed');
+  },
+};
+
+/**
+ * Migration v11 -> v12: Add 'image' to conversations type constraint
+ * Allows standalone image generation conversations
+ */
+const migration_v12: IMigration = {
+  version: 12,
+  name: 'Add image to conversations type constraint',
+  up: (db) => {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS conversations_new (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        name TEXT NOT NULL,
+        type TEXT NOT NULL CHECK(type IN ('gemini', 'acp', 'codex', 'image')),
+        extra TEXT NOT NULL,
+        model TEXT,
+        status TEXT CHECK(status IN ('pending', 'running', 'finished')),
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL,
+        source TEXT CHECK(source IN ('foundry', 'telegram')),
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      );
+
+      INSERT INTO conversations_new SELECT id, user_id, name, type, extra, model, status, created_at, updated_at, source FROM conversations;
+
+      DROP TABLE conversations;
+
+      ALTER TABLE conversations_new RENAME TO conversations;
+
+      CREATE INDEX IF NOT EXISTS idx_conversations_user_id ON conversations(user_id);
+      CREATE INDEX IF NOT EXISTS idx_conversations_updated_at ON conversations(updated_at);
+      CREATE INDEX IF NOT EXISTS idx_conversations_type ON conversations(type);
+      CREATE INDEX IF NOT EXISTS idx_conversations_user_updated ON conversations(user_id, updated_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_conversations_source ON conversations(source);
+      CREATE INDEX IF NOT EXISTS idx_conversations_source_updated ON conversations(source, updated_at DESC);
+    `);
+
+    console.log('[Migration v12] Added image to conversations type constraint');
+  },
+  down: (db) => {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS conversations_old (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        name TEXT NOT NULL,
+        type TEXT NOT NULL CHECK(type IN ('gemini', 'acp', 'codex')),
+        extra TEXT NOT NULL,
+        model TEXT,
+        status TEXT CHECK(status IN ('pending', 'running', 'finished')),
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL,
+        source TEXT CHECK(source IN ('foundry', 'telegram')),
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      );
+
+      INSERT OR IGNORE INTO conversations_old SELECT * FROM conversations WHERE type != 'image';
+
+      DROP TABLE IF EXISTS conversations;
+
+      ALTER TABLE conversations_old RENAME TO conversations;
+
+      CREATE INDEX IF NOT EXISTS idx_conversations_user_id ON conversations(user_id);
+      CREATE INDEX IF NOT EXISTS idx_conversations_updated_at ON conversations(updated_at);
+      CREATE INDEX IF NOT EXISTS idx_conversations_type ON conversations(type);
+      CREATE INDEX IF NOT EXISTS idx_conversations_user_updated ON conversations(user_id, updated_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_conversations_source ON conversations(source);
+      CREATE INDEX IF NOT EXISTS idx_conversations_source_updated ON conversations(source, updated_at DESC);
+    `);
+    console.log('[Migration v12] Rolled back: Removed image from conversations type constraint');
+  },
+};
+
+/**
  * All migrations in order
  */
-export const ALL_MIGRATIONS: IMigration[] = [migration_v1, migration_v2, migration_v3, migration_v4, migration_v5, migration_v6, migration_v7, migration_v8, migration_v9, migration_v10];
+export const ALL_MIGRATIONS: IMigration[] = [migration_v1, migration_v2, migration_v3, migration_v4, migration_v5, migration_v6, migration_v7, migration_v8, migration_v9, migration_v10, migration_v11, migration_v12];
 
 /**
  * Get migrations needed to upgrade from one version to another

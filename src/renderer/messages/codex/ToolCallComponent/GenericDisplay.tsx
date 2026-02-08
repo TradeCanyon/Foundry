@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright 2025 AionUi (aionui.com)
+ * Copyright 2025 Foundry (foundry.app)
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -89,7 +89,7 @@ const GenericDisplay: React.FC<{ content: GenericUpdate }> = ({ content }) => {
             </div>
           )}
 
-          {/* Display content if available 显示内容 */}
+          {/* Display content if available */}
           {contentArray && contentArray.length > 0 && (
             <div>
               {contentArray.map((content, index) => (

@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright 2025 AionUi (aionui.com)
+ * Copyright 2025 Foundry (foundry.app)
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -9,6 +9,7 @@ import { initAcpConversationBridge } from './acpConversationBridge';
 import { initApplicationBridge } from './applicationBridge';
 import { initChannelBridge } from './channelBridge';
 import { initAuthBridge } from './authBridge';
+import { initClaudeRoutingBridge } from './claudeRoutingBridge';
 import { initCodexConversationBridge } from './codexConversationBridge';
 import { initConversationBridge } from './conversationBridge';
 import { initCronBridge } from './cronBridge';
@@ -25,10 +26,11 @@ import { initPreviewHistoryBridge } from './previewHistoryBridge';
 import { initShellBridge } from './shellBridge';
 import { initUpdateBridge } from './updateBridge';
 import { initWebuiBridge } from './webuiBridge';
+import { initImageBridge } from './imageBridge';
 import { initWindowControlsBridge } from './windowControlsBridge';
 
 /**
- * 初始化所有IPC桥接模块
+ * Initialize all IPC bridge modules
  */
 export function initAllBridges(): void {
   initDialogBridge();
@@ -38,7 +40,7 @@ export function initAllBridges(): void {
   initConversationBridge();
   initApplicationBridge();
   initGeminiConversationBridge();
-  // 额外的 Gemini 辅助桥（订阅检测等）需要在对话桥初始化后可用 / extra helpers after core bridges
+  // Extra Gemini helpers (subscription detection etc) available after core bridges
   initGeminiBridge();
   initAcpConversationBridge();
   initCodexConversationBridge();
@@ -53,10 +55,12 @@ export function initAllBridges(): void {
   initWebuiBridge();
   initChannelBridge();
   initCronBridge();
+  initClaudeRoutingBridge();
+  initImageBridge();
 }
 
 /**
- * 初始化ACP检测器
+ * Initialize ACP detector
  */
 export async function initializeAcpDetector(): Promise<void> {
   try {
@@ -66,7 +70,7 @@ export async function initializeAcpDetector(): Promise<void> {
   }
 }
 
-// 导出初始化函数供单独使用
-export { initAcpConversationBridge, initApplicationBridge, initAuthBridge, initChannelBridge, initCodexConversationBridge, initConversationBridge, initCronBridge, initDatabaseBridge, initDialogBridge, initDocumentBridge, initFsBridge, initGeminiBridge, initGeminiConversationBridge, initMcpBridge, initModelBridge, initPreviewHistoryBridge, initShellBridge, initUpdateBridge, initWebuiBridge, initWindowControlsBridge };
-// 导出窗口控制相关工具函数
+// Export initialization functions for individual use
+export { initAcpConversationBridge, initApplicationBridge, initAuthBridge, initChannelBridge, initClaudeRoutingBridge, initCodexConversationBridge, initConversationBridge, initCronBridge, initDatabaseBridge, initDialogBridge, initDocumentBridge, initFsBridge, initGeminiBridge, initGeminiConversationBridge, initImageBridge, initMcpBridge, initModelBridge, initPreviewHistoryBridge, initShellBridge, initUpdateBridge, initWebuiBridge, initWindowControlsBridge };
+// Export window control utility functions
 export { registerWindowMaximizeListeners } from './windowControlsBridge';

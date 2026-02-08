@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright 2025 AionUi (aionui.com)
+ * Copyright 2025 Foundry (foundry.app)
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -11,6 +11,17 @@ import { getDatabase } from './database/export';
 import { ProcessChat } from './initStorage';
 
 const Cache = new Map<string, ConversationManageWithDB>();
+
+/**
+ * Clear the message cache for a specific conversation
+ * Call this when resetting or editing a conversation to prevent stale message processing
+ */
+export const clearMessageCache = (conversation_id: string): void => {
+  if (Cache.has(conversation_id)) {
+    Cache.delete(conversation_id);
+    console.log(`[Message] Cleared cache for conversation ${conversation_id}`);
+  }
+};
 
 // Place all messages in a unified update queue based on the conversation
 // Ensure that the update mechanism for each message is consistent with the front end, meaning that the database and UI data are in sync

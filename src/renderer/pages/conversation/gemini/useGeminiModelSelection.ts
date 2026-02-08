@@ -16,7 +16,32 @@ export interface GeminiModelSelection {
   handleSelectModel: (provider: IProvider, modelName: string) => Promise<void>;
 }
 
-// 将模型选择逻辑集中在一个 hook 中，方便头部/发送框复用
+/**
+ * Convert raw API model names to human-friendly labels.
+ * e.g. "claude-opus-4-5-2025" → "Claude Opus 4.5"
+ *      "gpt-4o-2024-05-13" → "GPT-4o"
+ *      "gemini-2.0-flash" → "Gemini 2.0 Flash"
+ */
+function prettifyModelName(name: string): string {
+  // Strip date suffixes (e.g. -20250929, -2025, -2024-05-13)
+  let clean = name.replace(/-\d{4,}(-\d{2}(-\d{2})?)?$/, '');
+  // Convert hyphens to spaces and capitalize each word
+  clean = clean
+    .split('-')
+    .map((word) => {
+      // Keep known abbreviations uppercase
+      if (/^gpt$/i.test(word)) return 'GPT';
+      if (/^o\d+$/i.test(word)) return word; // o1, o3, etc.
+      // Version-like segments (e.g. "4", "4o", "2.0"): keep as-is
+      if (/^\d/.test(word)) return word;
+      return word.charAt(0).toUpperCase() + word.slice(1);
+    })
+    .join(' ');
+  // Collapse version parts: "4 5" → "4.5" when preceded by a model family name
+  clean = clean.replace(/(\d+)\s+(\d+)(?!\.\d)/, '$1.$2');
+  return clean;
+}
+
 // Centralize model selection logic for reuse across header and send box
 export const useGeminiModelSelection = (conversationId: string | undefined, initialModel: TProviderWithModel | undefined): GeminiModelSelection => {
   const [currentModel, setCurrentModel] = useState<TProviderWithModel | undefined>(initialModel);
@@ -35,7 +60,7 @@ export const useGeminiModelSelection = (conversationId: string | undefined, init
 
   const { data: modelConfig } = useSWR('model.config.sendbox', () => ipcBridge.mode.getModelConfig.invoke());
 
-  // Use useRef for mutable cache that persists across renders / 使用 useRef 存储可变缓存
+  // Use useRef for mutable cache that persists across renders
   const availableModelsCacheRef = useRef(new Map<string, string[]>());
 
   const getAvailableModels = useCallback((provider: IProvider): string[] => {
@@ -57,7 +82,6 @@ export const useGeminiModelSelection = (conversationId: string | undefined, init
   }, []);
 
   const providers = useMemo(() => {
-    // 根据是否启用 Google Auth 动态拼接 provider 列表
     // Dynamically build provider list when Google Auth provider is available
     let list: IProvider[] = Array.isArray(modelConfig) ? modelConfig : [];
     if (isGoogleAuth) {
@@ -94,7 +118,8 @@ export const useGeminiModelSelection = (conversationId: string | undefined, init
       if (isGoogleAuthProvider) {
         return geminiModeLookup.get(modelName)?.label || modelName;
       }
-      return modelName;
+      // Prettify common API model names for non-Google-Auth providers
+      return prettifyModelName(modelName);
     },
     [geminiModeLookup]
   );

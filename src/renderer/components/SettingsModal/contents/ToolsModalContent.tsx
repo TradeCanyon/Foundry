@@ -1,18 +1,16 @@
 /**
  * @license
- * Copyright 2025 AionUi (aionui.com)
+ * Copyright 2025 Foundry (foundry.app)
  * SPDX-License-Identifier: Apache-2.0
  */
 
 import { ConfigStorage, type IConfigStorageRefer, type IMcpServer } from '@/common/storage';
 import { acpConversation } from '@/common/ipcBridge';
-import { Divider, Form, Switch, Tooltip, Message, Button, Dropdown, Menu, Modal } from '@arco-design/web-react';
+import { Divider, Switch, Tooltip, Message, Button, Dropdown, Menu, Modal } from '@arco-design/web-react';
 import { Help, Down, Plus } from '@icon-park/react';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import useConfigModelListWithImage from '@/renderer/hooks/useConfigModelListWithImage';
-import AionScrollArea from '@/renderer/components/base/AionScrollArea';
-import AionSelect from '@/renderer/components/base/AionSelect';
+import FoundryScrollArea from '@/renderer/components/base/FoundryScrollArea';
 import AddMcpServerModal from '@/renderer/pages/settings/components/AddMcpServerModal';
 import McpServerItem from '@/renderer/pages/settings/McpManagement/McpServerItem';
 import { useMcpServers, useMcpAgentStatus, useMcpOperations, useMcpConnection, useMcpModal, useMcpServerCRUD, useMcpOAuth } from '@/renderer/hooks/mcp';
@@ -198,13 +196,13 @@ const ModalMcpManagementSection: React.FC<{ message: MessageInstance; isPageMode
         {mcpServers.length === 0 ? (
           <div className='py-24px text-center text-t-secondary text-14px border border-dashed border-border-2 rd-12px'>{t('settings.mcpNoServersFound')}</div>
         ) : (
-          <AionScrollArea className={classNames('max-h-360px', isPageMode && 'max-h-none')} disableOverflow={isPageMode}>
+          <FoundryScrollArea className={classNames('max-h-360px', isPageMode && 'max-h-none')} disableOverflow={isPageMode}>
             <div className='space-y-12px'>
               {mcpServers.map((server) => (
                 <McpServerItem key={server.id} server={server} isCollapsed={mcpCollapseKey[server.id] || false} agentInstallStatus={agentInstallStatus} isServerLoading={isServerLoading} isTestingConnection={testingServers[server.id] || false} oauthStatus={oauthStatus[server.id]} isLoggingIn={loggingIn[server.id]} onToggleCollapse={() => toggleServerCollapse(server.id)} onTestConnection={handleTestMcpConnection} onEditServer={showEditMcpModal} onDeleteServer={showDeleteConfirm} onToggleServer={handleToggleMcpServer} onOAuthLogin={handleOAuthLogin} />
               ))}
             </div>
-          </AionScrollArea>
+          </FoundryScrollArea>
         )}
       </div>
 
@@ -220,40 +218,10 @@ const ModalMcpManagementSection: React.FC<{ message: MessageInstance; isPageMode
 const ToolsModalContent: React.FC = () => {
   const { t } = useTranslation();
   const [mcpMessage, mcpMessageContext] = Message.useMessage({ maxCount: 10 });
-  const [imageGenerationModel, setImageGenerationModel] = useState<IConfigStorageRefer['tools.imageGenerationModel'] | undefined>();
   const [claudeYoloMode, setClaudeYoloMode] = useState(false);
-  const { modelListWithImage: data } = useConfigModelListWithImage();
-
-  const imageGenerationModelList = useMemo(() => {
-    if (!data) return [];
-    // Filter models that support image generation
-    // 筛选支持图片生成的模型
-    const isImageModel = (modelName: string) => {
-      const name = modelName.toLowerCase();
-      return name.includes('image') || name.includes('banana');
-    };
-    return (data || [])
-      .filter((v) => {
-        const filteredModels = v.model.filter(isImageModel);
-        return filteredModels.length > 0;
-      })
-      .map((v) => ({
-        ...v,
-        model: v.model.filter(isImageModel),
-      }));
-  }, [data]);
 
   useEffect(() => {
     const loadConfigs = async () => {
-      try {
-        const data = await ConfigStorage.get('tools.imageGenerationModel');
-        if (data) {
-          setImageGenerationModel(data);
-        }
-      } catch (error) {
-        console.error('Failed to load image generation model config:', error);
-      }
-
       try {
         const config = await ConfigStorage.get('acp.config');
         setClaudeYoloMode(Boolean(config?.claude?.yoloMode));
@@ -264,40 +232,6 @@ const ToolsModalContent: React.FC = () => {
 
     void loadConfigs();
   }, []);
-
-  // Sync imageGenerationModel apiKey when provider apiKey changes
-  useEffect(() => {
-    if (!imageGenerationModel || !data) return;
-
-    const currentProvider = data.find((p) => p.id === imageGenerationModel.id);
-
-    if (currentProvider && currentProvider.apiKey !== imageGenerationModel.apiKey) {
-      const updatedModel = {
-        ...imageGenerationModel,
-        apiKey: currentProvider.apiKey,
-      };
-
-      setImageGenerationModel(updatedModel);
-      ConfigStorage.set('tools.imageGenerationModel', updatedModel).catch((error) => {
-        console.error('Failed to save image generation model config:', error);
-      });
-    } else if (!currentProvider) {
-      setImageGenerationModel(undefined);
-      ConfigStorage.remove('tools.imageGenerationModel').catch((error) => {
-        console.error('Failed to remove image generation model config:', error);
-      });
-    }
-  }, [data, imageGenerationModel?.id, imageGenerationModel?.apiKey]);
-
-  const handleImageGenerationModelChange = (value: Partial<IConfigStorageRefer['tools.imageGenerationModel']>) => {
-    setImageGenerationModel((prev) => {
-      const newImageGenerationModel = { ...prev, ...value };
-      ConfigStorage.set('tools.imageGenerationModel', newImageGenerationModel).catch((error) => {
-        console.error('Failed to update image generation model config:', error);
-      });
-      return newImageGenerationModel;
-    });
-  };
 
   const handleClaudeYoloModeChange = async (enabled: boolean) => {
     setClaudeYoloMode(enabled);
@@ -324,71 +258,16 @@ const ToolsModalContent: React.FC = () => {
       {mcpMessageContext}
 
       {/* Content Area */}
-      <AionScrollArea className='flex-1 min-h-0 pb-16px' disableOverflow={isPageMode}>
+      <FoundryScrollArea className='flex-1 min-h-0 pb-16px' disableOverflow={isPageMode}>
         <div className='space-y-16px'>
-          {/* MCP 工具配置 */}
+          {/* MCP Tools Configuration */}
           <div className='px-[12px] md:px-[32px] py-[24px] bg-2 rd-12px md:rd-16px flex flex-col min-h-0 border border-border-2'>
             <div className='flex-1 min-h-0'>
-              <AionScrollArea className={classNames('h-full', isPageMode && 'overflow-visible')} disableOverflow={isPageMode}>
+              <FoundryScrollArea className={classNames('h-full', isPageMode && 'overflow-visible')} disableOverflow={isPageMode}>
                 <ModalMcpManagementSection message={mcpMessage} isPageMode={isPageMode} />
-              </AionScrollArea>
+              </FoundryScrollArea>
             </div>
           </div>
-          {/* 图像生成 */}
-          <div className='px-[12px] md:px-[32px] py-[24px] bg-2 rd-12px md:rd-16px border border-border-2'>
-            <div className='flex items-center justify-between mb-16px'>
-              <span className='text-14px text-t-primary'>{t('settings.imageGeneration')}</span>
-              <Switch disabled={!imageGenerationModelList.length || !imageGenerationModel?.useModel} checked={imageGenerationModel?.switch} onChange={(checked) => handleImageGenerationModelChange({ switch: checked })} />
-            </div>
-
-            <Divider className='mt-0px mb-20px' />
-
-            <Form layout='horizontal' labelAlign='left' className='space-y-12px'>
-              <Form.Item label={t('settings.imageGenerationModel')}>
-                {imageGenerationModelList.length > 0 ? (
-                  <AionSelect
-                    value={imageGenerationModel?.id && imageGenerationModel?.useModel ? `${imageGenerationModel.id}|${imageGenerationModel.useModel}` : undefined}
-                    onChange={(value) => {
-                      const [platformId, modelName] = value.split('|');
-                      const platform = imageGenerationModelList.find((p) => p.id === platformId);
-                      if (platform) {
-                        handleImageGenerationModelChange({ ...platform, useModel: modelName });
-                      }
-                    }}
-                  >
-                    {imageGenerationModelList.map(({ model, ...platform }) => (
-                      <AionSelect.OptGroup label={platform.name} key={platform.id}>
-                        {model.map((modelName) => (
-                          <AionSelect.Option key={platform.id + modelName} value={platform.id + '|' + modelName}>
-                            {modelName}
-                          </AionSelect.Option>
-                        ))}
-                      </AionSelect.OptGroup>
-                    ))}
-                  </AionSelect>
-                ) : (
-                  <div className='text-t-secondary flex items-center'>
-                    {t('settings.noAvailable')}
-                    <Tooltip
-                      content={
-                        <div>
-                          {t('settings.needHelpTooltip')}
-                          <a href='https://github.com/iOfficeAI/AionUi/wiki/AionUi-Image-Generation-Tool-Model-Configuration-Guide' target='_blank' rel='noopener noreferrer' className='text-[rgb(var(--primary-6))] hover:text-[rgb(var(--primary-5))] underline ml-4px' onClick={(e) => e.stopPropagation()}>
-                            {t('settings.configGuide')}
-                          </a>
-                        </div>
-                      }
-                    >
-                      <a href='https://github.com/iOfficeAI/AionUi/wiki/AionUi-Image-Generation-Tool-Model-Configuration-Guide' target='_blank' rel='noopener noreferrer' className='ml-8px text-[rgb(var(--primary-6))] hover:text-[rgb(var(--primary-5))] cursor-pointer' onClick={(e) => e.stopPropagation()}>
-                        <Help theme='outline' size='14' />
-                      </a>
-                    </Tooltip>
-                  </div>
-                )}
-              </Form.Item>
-            </Form>
-          </div>
-
           {/* Claude Code */}
           <div className='px-[12px] md:px-[32px] py-[24px] bg-2 rd-12px md:rd-16px border border-border-2'>
             <div className='flex items-center justify-between mb-16px'>
@@ -406,7 +285,7 @@ const ToolsModalContent: React.FC = () => {
             <Divider className='mt-0px mb-0px' />
           </div>
         </div>
-      </AionScrollArea>
+      </FoundryScrollArea>
     </div>
   );
 };

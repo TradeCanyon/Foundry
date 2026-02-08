@@ -53,5 +53,7 @@ export const mainConfig: Configuration = {
     // Handle ?binary WASM imports from aioncli-core - let them fail so fallback can work
     'web-tree-sitter/tree-sitter.wasm?binary': 'commonjs web-tree-sitter/tree-sitter.wasm',
     'tree-sitter-bash/tree-sitter-bash.wasm?binary': 'commonjs tree-sitter-bash/tree-sitter-bash.wasm',
+    // playwright-core spawns browser processes and has complex runtime module resolution
+    'playwright-core': 'commonjs playwright-core',
   },
 };

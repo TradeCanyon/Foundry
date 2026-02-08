@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright 2025 AionUi (aionui.com)
+ * Copyright 2025 Foundry (foundry.app)
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -66,7 +66,7 @@ export class Pipe {
   isClose = false;
   constructor(master = false) {
     if (!master) {
-      // 接受主进程消息
+      // Receive messages from main process
       if (process.parentPort) {
         process.parentPort.on('message', (event) => {
           const { type, data, pipeId } = event.data || {};
@@ -115,18 +115,18 @@ export class Pipe {
     else this.listener[name] = this.listener[name].filter((h) => h !== handler);
   }
   /**
-   * 向主线程发起通知
-   * @param name 通知名称
-   * @param data 通知数据
-   * @param extPrams 扩展参数
+   * Send notification to main thread
+   * @param name Notification name
+   * @param data Notification data
+   * @param extPrams Extended parameters
    */
   call(name: string, data: any, extPrams: any = {}) {
     if (this.isClose) {
-      console.log('---主进程已关闭', name, '执行失败！!');
+      console.log('---main process closed', name, 'execution failed!!');
       return;
     }
     if (!process.parentPort?.postMessage) {
-      console.error('---非子线程，无法使用主线程事件机制');
+      console.error('---not a child thread, cannot use main thread event mechanism');
       return;
     }
     process.parentPort.postMessage({
@@ -135,7 +135,7 @@ export class Pipe {
       ...extPrams,
     });
   }
-  // 向主线程发起通知,并建立响应机制
+  // Send notification to main thread and establish response mechanism
   callPromise<T = any>(name: string, data: any) {
     const pipeId = uuid(8);
     this.call(name, data, {

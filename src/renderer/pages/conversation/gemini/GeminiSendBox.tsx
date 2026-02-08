@@ -8,6 +8,7 @@ import FilePreview from '@/renderer/components/FilePreview';
 import HorizontalFileList from '@/renderer/components/HorizontalFileList';
 import SendBox from '@/renderer/components/sendbox';
 import ThoughtDisplay, { type ThoughtData } from '@/renderer/components/ThoughtDisplay';
+import { useProcessingContextSafe } from '@/renderer/context/ConversationContext';
 import { useAutoTitle } from '@/renderer/hooks/useAutoTitle';
 import { useLatestRef } from '@/renderer/hooks/useLatestRef';
 import { getSendBoxDraftHook, type FileOrFolderItem } from '@/renderer/hooks/useSendBoxDraft';
@@ -35,20 +36,25 @@ const useGeminiSendBoxDraft = getSendBoxDraftHook('gemini', {
 
 const useGeminiMessage = (conversation_id: string, onError?: (message: IResponseMessage) => void) => {
   const addOrUpdateMessage = useAddOrUpdateMessage();
-  const [streamRunning, setStreamRunning] = useState(false); // API 流是否在运行
-  const [hasActiveTools, setHasActiveTools] = useState(false); // 是否有工具在执行或等待确认
-  const [waitingResponse, setWaitingResponse] = useState(false); // 等待后端响应（发送消息后到收到 start 之前）
+  // Refs for callbacks used in the stream listener — prevents useEffect re-subscription
+  // when these functions change reference (which would cancel the bridge timeout)
+  const addOrUpdateMessageRef = useLatestRef(addOrUpdateMessage);
+  const onErrorRef = useLatestRef(onError);
+  const [streamRunning, setStreamRunning] = useState(false); // Whether API stream is running
+  const [hasActiveTools, setHasActiveTools] = useState(false); // Whether tools are executing or awaiting confirmation
+  const [waitingResponse, setWaitingResponse] = useState(false); // Waiting for backend response (after sending message until receiving start)
   const [thought, setThought] = useState<ThoughtData>({
     description: '',
     subject: '',
   });
   const [tokenUsage, setTokenUsage] = useState<TokenUsageData | null>(null);
-  // 当前活跃的消息 ID，用于过滤旧请求的事件（防止 abort 后的事件干扰新请求）
   // Current active message ID to filter out events from old requests (prevents aborted request events from interfering with new ones)
   const activeMsgIdRef = useRef<string | null>(null);
+  // Timeout that bridges the gap between 'finish' and the next 'start'/'tool_group'.
+  // Keeps running=true between model rounds so the thinking indicator never disappears mid-turn.
+  const finishBridgeRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Use refs to avoid useEffect re-subscription when these states change
-  // 使用 ref 避免状态变化时 useEffect 重新订阅导致事件丢失
   const hasActiveToolsRef = useRef(hasActiveTools);
   const streamRunningRef = useRef(streamRunning);
   useEffect(() => {
@@ -58,7 +64,6 @@ const useGeminiMessage = (conversation_id: string, onError?: (message: IResponse
     streamRunningRef.current = streamRunning;
   }, [streamRunning]);
 
-  // Think 消息节流：限制更新频率，减少渲染次数
   // Throttle thought updates to reduce render frequency
   const thoughtThrottleRef = useRef<{
     lastUpdate: number;
@@ -67,12 +72,12 @@ const useGeminiMessage = (conversation_id: string, onError?: (message: IResponse
   }>({ lastUpdate: 0, pending: null, timer: null });
 
   const throttledSetThought = useMemo(() => {
-    const THROTTLE_MS = 50; // 50ms 节流间隔
+    const THROTTLE_MS = 50; // 50ms throttle interval
     return (data: ThoughtData) => {
       const now = Date.now();
       const ref = thoughtThrottleRef.current;
 
-      // 如果距离上次更新超过节流间隔，立即更新
+      // If time since last update exceeds throttle interval, update immediately
       if (now - ref.lastUpdate >= THROTTLE_MS) {
         ref.lastUpdate = now;
         ref.pending = null;
@@ -82,7 +87,7 @@ const useGeminiMessage = (conversation_id: string, onError?: (message: IResponse
         }
         setThought(data);
       } else {
-        // 否则保存最新数据，等待下次更新
+        // Otherwise save latest data and wait for next update
         ref.pending = data;
         if (!ref.timer) {
           ref.timer = setTimeout(
@@ -101,7 +106,7 @@ const useGeminiMessage = (conversation_id: string, onError?: (message: IResponse
     };
   }, []);
 
-  // 清理节流定时器
+  // Clean up throttle timer
   useEffect(() => {
     return () => {
       if (thoughtThrottleRef.current.timer) {
@@ -110,27 +115,23 @@ const useGeminiMessage = (conversation_id: string, onError?: (message: IResponse
     };
   }, []);
 
-  // 综合运行状态：等待响应 或 流在运行 或 有工具在执行/等待确认
   // Combined running state: waiting for response OR stream is running OR tools are active
   const running = waitingResponse || streamRunning || hasActiveTools;
 
-  // 设置当前活跃的消息 ID / Set current active message ID
+  // Set current active message ID
   const setActiveMsgId = useCallback((msgId: string | null) => {
     activeMsgIdRef.current = msgId;
   }, []);
 
   useEffect(() => {
-    return ipcBridge.geminiConversation.responseStream.on((message) => {
+    const unsubscribe = ipcBridge.geminiConversation.responseStream.on((message) => {
       if (conversation_id !== message.conversation_id) {
         return;
       }
 
-      // 过滤掉不属于当前活跃请求的事件（防止 abort 后的事件干扰）
-      // 注意: 只过滤 thought 和 start 等状态消息，其他消息都必须渲染
       // Filter out events not belonging to current active request (prevents aborted events from interfering)
       // Note: only filter out thought and start messages, other messages must be rendered
       if (activeMsgIdRef.current && message.msg_id && message.msg_id !== activeMsgIdRef.current) {
-        // 只过滤掉 thought 和 start，其他消息都需要渲染
         // Only filter out thought and start, other messages need to be rendered
         if (message.type === 'thought') {
           return;
@@ -143,24 +144,34 @@ const useGeminiMessage = (conversation_id: string, onError?: (message: IResponse
           break;
         case 'start':
           setStreamRunning(true);
-          setWaitingResponse(false); // 收到 start，可以清除等待状态
+          setWaitingResponse(false);
+          // Cancel finish bridge — the next round is starting
+          if (finishBridgeRef.current) {
+            clearTimeout(finishBridgeRef.current);
+            finishBridgeRef.current = null;
+          }
           break;
         case 'finish':
           {
             setStreamRunning(false);
-            // 只有当没有活跃工具时才清除等待状态和 thought
-            // Only clear waiting state and thought when no active tools
-            // 当有工具在执行时，工具完成后后端还需要继续向模型发送请求
-            // When tools are active, backend needs to continue sending requests to model after tool completion
+            // Bridge the gap: keep running=true until the next 'start' or 'tool_group' arrives.
+            // Without this, running flickers false between finish and the next event because
+            // waitingResponse was already cleared by 'start' and hasActiveTools isn't set yet.
+            setWaitingResponse(true);
             if (!hasActiveToolsRef.current) {
+              setThought({ subject: 'Processing', description: '' });
+            }
+            // Safety: if this is the FINAL round (no more events coming), auto-clear after 2s
+            if (finishBridgeRef.current) clearTimeout(finishBridgeRef.current);
+            finishBridgeRef.current = setTimeout(() => {
               setWaitingResponse(false);
               setThought({ subject: '', description: '' });
-            }
+              finishBridgeRef.current = null;
+            }, 2000);
           }
           break;
         case 'tool_group':
           {
-            // 检查是否有工具在执行或等待确认
             // Check if any tools are executing or awaiting confirmation
             const tools = message.data as Array<{ status: string; name?: string }>;
             const activeStatuses = ['Executing', 'Confirming', 'Pending'];
@@ -168,15 +179,26 @@ const useGeminiMessage = (conversation_id: string, onError?: (message: IResponse
             const wasActive = hasActiveToolsRef.current;
             setHasActiveTools(hasActive);
 
-            // 当工具从活跃变为非活跃时，设置 waitingResponse=true
-            // 因为后端还需要继续向模型发送请求
-            // When tools transition from active to inactive, set waitingResponse=true
-            // because backend needs to continue sending requests to model
-            if (wasActive && !hasActive && tools.length > 0) {
-              setWaitingResponse(true);
+            if (hasActive) {
+              // Tools actively running — cancel bridge timeout, tools manage the state now
+              if (finishBridgeRef.current) {
+                clearTimeout(finishBridgeRef.current);
+                finishBridgeRef.current = null;
+              }
             }
 
-            // 如果有工具在等待确认，更新 thought 提示
+            // When tools transition from active to inactive, bridge to the next 'start'
+            if (wasActive && !hasActive && tools.length > 0) {
+              setWaitingResponse(true);
+              // Start fresh bridge timeout — clears if no 'start' arrives (final round)
+              if (finishBridgeRef.current) clearTimeout(finishBridgeRef.current);
+              finishBridgeRef.current = setTimeout(() => {
+                setWaitingResponse(false);
+                setThought({ subject: '', description: '' });
+                finishBridgeRef.current = null;
+              }, 2000);
+            }
+
             // If tools are awaiting confirmation, update thought hint
             const confirmingTool = tools.find((tool) => tool.status === 'Confirming');
             if (confirmingTool) {
@@ -193,23 +215,19 @@ const useGeminiMessage = (conversation_id: string, onError?: (message: IResponse
                 });
               }
             } else if (!streamRunningRef.current) {
-              // 所有工具完成且流已停止，清除 thought
-              // All tools completed and stream stopped, clear thought
-              setThought({ subject: '', description: '' });
+              // All tools completed and stream stopped — show transitional status
+              setThought({ subject: 'Processing results', description: '' });
             }
 
-            // 继续传递消息给消息列表更新
             // Continue passing message to message list update
-            addOrUpdateMessage(transformMessage(message));
+            addOrUpdateMessageRef.current(transformMessage(message));
           }
           break;
         case 'finished':
           {
-            // 处理 Finished 事件，提取 token 使用统计
+            // Handle Finished event to extract token usage stats
             // Note: 'finished' event is for token usage stats only, NOT for stream end
             // Stream end is signaled by 'finish' event
-            // 注意：'finished' 事件仅用于 token 统计，不表示流结束
-            // 流结束由 'finish' 事件表示
             const finishedData = message.data as {
               reason?: string;
               usageMetadata?: {
@@ -224,8 +242,8 @@ const useGeminiMessage = (conversation_id: string, onError?: (message: IResponse
                 totalTokens: finishedData.usageMetadata.totalTokenCount || 0,
               };
               setTokenUsage(newTokenUsage);
-              // 持久化 token 使用统计到会话的 extra.lastTokenUsage 字段
-              // 使用 mergeExtra 选项，后端会自动合并 extra 字段，避免两次 IPC 调用
+              // Persist token usage stats to conversation's extra.lastTokenUsage field
+              // Use mergeExtra option so backend auto-merges extra field, avoiding two IPC calls
               void ipcBridge.conversation.update.invoke({
                 id: conversation_id,
                 updates: {
@@ -239,25 +257,33 @@ const useGeminiMessage = (conversation_id: string, onError?: (message: IResponse
             // DO NOT reset streamRunning/waitingResponse here!
             // For OpenAI-compatible APIs, 'finished' events are emitted per chunk
             // Only 'finish' event should reset the stream state
-            // 不要在这里重置 streamRunning/waitingResponse！
-            // 对于 OpenAI 兼容 API，每个流块都会发送 'finished' 事件
-            // 只有 'finish' 事件才应该重置流状态
           }
           break;
         default: {
           if (message.type === 'error') {
             setWaitingResponse(false);
-            onError?.(message as IResponseMessage);
+            if (finishBridgeRef.current) {
+              clearTimeout(finishBridgeRef.current);
+              finishBridgeRef.current = null;
+            }
+            onErrorRef.current?.(message as IResponseMessage);
           }
           // Backend handles persistence, Frontend only updates UI
-          addOrUpdateMessage(transformMessage(message));
+          addOrUpdateMessageRef.current(transformMessage(message));
           break;
         }
       }
     });
-    // Note: hasActiveTools and streamRunning are accessed via refs to avoid re-subscription
-    // 注意：hasActiveTools 和 streamRunning 通过 ref 访问，避免重新订阅导致事件丢失
-  }, [conversation_id, addOrUpdateMessage, onError]);
+    // Only re-subscribe on conversation change. Callbacks accessed via refs to prevent
+    // re-subscription (which would cancel the bridge timeout and cause stuck processing).
+    return () => {
+      unsubscribe();
+      if (finishBridgeRef.current) {
+        clearTimeout(finishBridgeRef.current);
+        finishBridgeRef.current = null;
+      }
+    };
+  }, [conversation_id]);
 
   useEffect(() => {
     setStreamRunning(false);
@@ -265,15 +291,19 @@ const useGeminiMessage = (conversation_id: string, onError?: (message: IResponse
     setWaitingResponse(false);
     setThought({ subject: '', description: '' });
     setTokenUsage(null);
+    if (finishBridgeRef.current) {
+      clearTimeout(finishBridgeRef.current);
+      finishBridgeRef.current = null;
+    }
     void ipcBridge.conversation.get.invoke({ id: conversation_id }).then((res) => {
       if (!res) return;
       if (res.status === 'running') {
         setStreamRunning(true);
       }
-      // 加载持久化的 token 使用统计
+      // Load persisted token usage stats
       if (res.type === 'gemini' && res.extra?.lastTokenUsage) {
         const { lastTokenUsage } = res.extra;
-        // 只有当 lastTokenUsage 有有效数据时才设置
+        // Only set when lastTokenUsage has valid data
         if (lastTokenUsage.totalTokens > 0) {
           setTokenUsage(lastTokenUsage);
         }
@@ -286,6 +316,10 @@ const useGeminiMessage = (conversation_id: string, onError?: (message: IResponse
     setStreamRunning(false);
     setHasActiveTools(false);
     setThought({ subject: '', description: '' });
+    if (finishBridgeRef.current) {
+      clearTimeout(finishBridgeRef.current);
+      finishBridgeRef.current = null;
+    }
   }, []);
 
   return { thought, setThought, running, tokenUsage, setActiveMsgId, setWaitingResponse, resetState };
@@ -404,6 +438,25 @@ const GeminiSendBox: React.FC<{
 
   const { thought, running, tokenUsage, setActiveMsgId, setWaitingResponse, resetState } = useGeminiMessage(conversation_id, handleGeminiError);
 
+  // Suggested reply state
+  const [suggestedReply, setSuggestedReply] = useState('');
+  const prevRunningRef = useRef(false);
+
+  // When running transitions true -> false, fetch a suggestion
+  useEffect(() => {
+    if (prevRunningRef.current && !running) {
+      void ipcBridge.geminiConversation.suggestReply.invoke({ conversation_id }).then((suggestion) => {
+        if (suggestion) setSuggestedReply(suggestion);
+      });
+    }
+    prevRunningRef.current = running;
+  }, [running, conversation_id]);
+
+  // Clear suggestion when running starts or user types
+  useEffect(() => {
+    if (running) setSuggestedReply('');
+  }, [running]);
+
   useEffect(() => {
     void ipcBridge.conversation.get.invoke({ id: conversation_id }).then((res) => {
       if (!res?.extra?.workspace) return;
@@ -411,7 +464,65 @@ const GeminiSendBox: React.FC<{
     });
   }, [conversation_id]);
 
-  const { atPath, uploadFile, setAtPath, setUploadFile, content, setContent } = useSendBoxDraft(conversation_id);
+  // Sync running state with processing context for MessageList thinking indicator
+  // Debounce the false transition to prevent flashing during finish→tool_group race conditions
+  const processingContext = useProcessingContextSafe();
+  const processingDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (running) {
+      if (processingDebounceRef.current) {
+        clearTimeout(processingDebounceRef.current);
+        processingDebounceRef.current = null;
+      }
+      processingContext?.setIsProcessing(true);
+    } else {
+      processingDebounceRef.current = setTimeout(() => {
+        processingContext?.setIsProcessing(false);
+        processingDebounceRef.current = null;
+      }, 500);
+    }
+    return () => {
+      if (processingDebounceRef.current) {
+        clearTimeout(processingDebounceRef.current);
+      }
+    };
+  }, [running, processingContext]);
+
+  // Push dynamic status message based on thought/tool activity
+  useEffect(() => {
+    if (!processingContext) return;
+    if (thought.subject && thought.description) {
+      processingContext.setStatusMessage(`${thought.subject}: ${thought.description}`);
+    } else if (thought.subject) {
+      processingContext.setStatusMessage(thought.subject);
+    } else {
+      processingContext.setStatusMessage('');
+    }
+  }, [thought.subject, thought.description, processingContext]);
+
+  // Listen for external message sending events (e.g., from message editing)
+  useAddEventListener(
+    'conversation.message.sending',
+    (data) => {
+      if (data.conversation_id === conversation_id) {
+        setWaitingResponse(true);
+      }
+    },
+    [conversation_id, setWaitingResponse]
+  );
+
+  const { atPath, uploadFile, setAtPath, setUploadFile, content, setContent: setContentRaw } = useSendBoxDraft(conversation_id);
+
+  // Wrap setContent to clear suggestion when user types
+  const setContent = useCallback(
+    (value: string) => {
+      setContentRaw(value);
+      if (value.trim()) setSuggestedReply('');
+    },
+    [setContentRaw]
+  );
+
+  const clearSuggestion = useCallback(() => setSuggestedReply(''), []);
 
   const addOrUpdateMessage = useAddOrUpdateMessage();
   const { setSendBoxHandler } = usePreviewContext();
@@ -431,7 +542,7 @@ const GeminiSendBox: React.FC<{
         const { input, files } = JSON.parse(storedMessage) as { input: string; files?: string[] };
         const msg_id = uuid();
         setActiveMsgId(msg_id);
-        setWaitingResponse(true); // 立即设置等待状态，确保按钮显示为停止
+        setWaitingResponse(true); // Set waiting state immediately to ensure button shows stop
 
         // Display user message immediately
         addOrUpdateMessage(
@@ -469,16 +580,13 @@ const GeminiSendBox: React.FC<{
     void sendInitialMessage();
   }, [conversation_id, currentModel?.useModel]);
 
-  // 使用 useLatestRef 保存最新的 setContent/atPath，避免重复注册 handler
   // Use useLatestRef to keep latest setters to avoid re-registering handler
   const setContentRef = useLatestRef(setContent);
   const atPathRef = useLatestRef(atPath);
 
-  // 注册预览面板添加到发送框的 handler
   // Register handler for adding text from preview panel to sendbox
   useEffect(() => {
     const handler = (text: string) => {
-      // 如果已有内容，添加换行和新文本；否则直接设置文本
       // If there's existing content, add newline and new text; otherwise just set the text
       const newContent = content ? `${content}\n${text}` : text;
       setContentRef.current(newContent);
@@ -495,7 +603,7 @@ const GeminiSendBox: React.FC<{
     []
   );
 
-  // 使用共享的文件处理逻辑
+  // Use shared file handling logic
   const { handleFilesAdded, clearFiles } = useSendBoxFiles({
     atPath,
     uploadFile,
@@ -506,22 +614,20 @@ const GeminiSendBox: React.FC<{
   const onSendHandler = async (message: string) => {
     if (!currentModel?.useModel) return;
     const msg_id = uuid();
-    // 设置当前活跃的消息 ID，用于过滤掉旧请求的事件
     // Set current active message ID to filter out events from old requests
     setActiveMsgId(msg_id);
-    setWaitingResponse(true); // 立即设置等待状态，确保按钮显示为停止
+    setWaitingResponse(true); // Set waiting state immediately to ensure button shows stop
 
-    // 保存文件列表（清空前需要保存）/ Save file list before clearing
+    // Save file list before clearing
     const filesToSend = collectSelectedFiles(uploadFile, atPath);
     const hasFiles = filesToSend.length > 0;
 
-    // 立即清空输入框，避免用户误以为消息没发送
     // Clear input immediately to avoid user thinking message wasn't sent
     setContent('');
     clearFiles();
 
     // User message: Display in UI immediately (Backend will persist when receiving from IPC)
-    // 显示原始消息，并附带选中文件名 / Display original message with selected file names
+    // Display original message with selected file names
     const displayMessage = buildDisplayMessage(message, filesToSend, workspacePath);
     addOrUpdateMessage(
       {
@@ -536,7 +642,6 @@ const GeminiSendBox: React.FC<{
       },
       true
     );
-    // 文件通过 files 参数传递给后端，不再在消息中添加 @ 前缀
     // Files are passed via files param, no longer adding @ prefix in message
     await ipcBridge.geminiConversation.sendMessage.invoke({
       input: displayMessage,
@@ -560,7 +665,7 @@ const GeminiSendBox: React.FC<{
     }
   });
 
-  // 停止会话处理函数 Stop conversation handler
+  // Stop conversation handler
   const handleStop = async (): Promise<void> => {
     // Use finally to ensure UI state is reset even if backend stop fails
     try {
@@ -579,7 +684,6 @@ const GeminiSendBox: React.FC<{
         onChange={setContent}
         loading={running}
         disabled={!currentModel?.useModel}
-        // 占位提示同步右上角选择的模型，确保用户感知当前目标
         // Keep placeholder in sync with header selection so users know the active target
         placeholder={currentModel?.useModel ? t('conversation.chat.sendMessageTo', { model: getDisplayModelName(currentModel.useModel) }) : t('conversation.chat.noModelSelected')}
         onStop={handleStop}
@@ -588,6 +692,8 @@ const GeminiSendBox: React.FC<{
         supportedExts={allSupportedExts}
         defaultMultiLine={true}
         lockMultiLine={true}
+        suggestedReply={suggestedReply}
+        onSuggestedReplyUsed={clearSuggestion}
         tools={
           <Button
             type='secondary'

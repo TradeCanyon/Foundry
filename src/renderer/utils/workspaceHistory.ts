@@ -1,13 +1,13 @@
 /**
  * @license
- * Copyright 2025 AionUi (aionui.com)
+ * Copyright 2025 Foundry (foundry.app)
  * SPDX-License-Identifier: Apache-2.0
  */
 
-const WORKSPACE_UPDATE_TIME_KEY = 'aionui_workspace_update_time';
+const WORKSPACE_UPDATE_TIME_KEY = 'foundry_workspace_update_time';
 
 /**
- * 获取 workspace 的最后更新时间
+ * Get the last update time of a workspace
  */
 export const getWorkspaceUpdateTime = (workspace: string): number => {
   try {
@@ -23,8 +23,8 @@ export const getWorkspaceUpdateTime = (workspace: string): number => {
 };
 
 /**
- * 更新 workspace 的最后更新时间
- * 在创建新会话时调用此函数
+ * Update the last update time of a workspace
+ * Call this function when creating a new session
  */
 export const updateWorkspaceTime = (workspace: string): void => {
   try {

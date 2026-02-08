@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright 2025 AionUi (aionui.com)
+ * Copyright 2025 Foundry (foundry.app)
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -34,6 +34,15 @@ export interface OpenAIChatCompletionParams {
     };
   }>;
   tool_choice?: 'auto' | 'none' | { type: 'function'; function: { name: string } };
+  /**
+   * Extended thinking configuration for Claude models
+   * When enabled, Claude uses internal reasoning before responding
+   */
+  thinking?: {
+    type: 'enabled' | 'disabled';
+    /** Token budget for thinking (must be >= 1024 and < max_tokens) */
+    budget_tokens?: number;
+  };
 }
 
 export interface OpenAIChatCompletionResponse {
@@ -72,7 +81,7 @@ export class OpenAI2AnthropicConverter implements ProtocolConverter<OpenAIChatCo
 
   constructor(config: ConverterConfig = {}) {
     this.config = {
-      defaultModel: 'claude-sonnet-4-20250514',
+      defaultModel: 'claude-sonnet-4-5-20250929',
       ...config,
     };
   }
@@ -131,6 +140,17 @@ export class OpenAI2AnthropicConverter implements ProtocolConverter<OpenAIChatCo
         description: tool.function.description || '',
         input_schema: (tool.function.parameters as Anthropic.Tool.InputSchema) || { type: 'object', properties: {} },
       }));
+    }
+
+    // Add extended thinking configuration if present
+    if (params.thinking) {
+      (request as Anthropic.MessageCreateParams).thinking =
+        params.thinking.type === 'enabled'
+          ? {
+              type: 'enabled',
+              budget_tokens: params.thinking.budget_tokens ?? 10000,
+            }
+          : { type: 'disabled' };
     }
 
     return request;

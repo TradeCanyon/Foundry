@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright 2025 AionUi (aionui.com)
+ * Copyright 2025 Foundry (foundry.app)
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -30,8 +30,8 @@ type GitHubReleaseApi = {
   assets?: GitHubReleaseApiAsset[];
 };
 
-const DEFAULT_REPO = 'iOfficeAI/AionUi';
-const DEFAULT_USER_AGENT = 'AionUi';
+const DEFAULT_REPO = 'Foundry/Foundry';
+const DEFAULT_USER_AGENT = 'Foundry';
 const ALLOWED_ASSET_EXTS = ['.exe', '.msi', '.dmg', '.zip', '.AppImage', '.deb', '.rpm'];
 const ALLOWED_DOWNLOAD_HOSTS = new Set<string>(['github.com', 'objects.githubusercontent.com', 'github-releases.githubusercontent.com', 'release-assets.githubusercontent.com']);
 const MAX_REDIRECTS = 8;
@@ -106,7 +106,7 @@ const pickRecommendedAsset = (assets: GitHubReleaseAsset[]): GitHubReleaseAsset 
 };
 
 const resolveRepo = (requestRepo?: string): string => {
-  const envRepo = process.env.AIONUI_GITHUB_REPO?.trim();
+  const envRepo = process.env.FOUNDRY_GITHUB_REPO?.trim();
   const repo = (requestRepo || envRepo || DEFAULT_REPO).trim();
   return repo || DEFAULT_REPO;
 };
@@ -159,9 +159,9 @@ const fetchWithAllowlistedRedirects = async (rawUrl: string, signal: AbortSignal
 const fetchGitHubReleases = async (repo: string): Promise<GitHubReleaseApi[]> => {
   const url = `https://api.github.com/repos/${repo}/releases`;
 
-  // 添加超时控制，防止网络问题导致无限等待 / Add timeout to prevent infinite wait on network issues
+  // Add timeout to prevent infinite wait on network issues
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 秒超时 / 30 second timeout
+  const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
 
   try {
     const res = await fetch(url, {
@@ -226,7 +226,7 @@ const sanitizeFileName = (name: string): string => {
   // Keep only base name and trim weird whitespace.
   const base = path.basename(name).trim();
   // Avoid empty names.
-  return base || `AionUi-update-${Date.now()}`;
+  return base || `Foundry-update-${Date.now()}`;
 };
 
 const ensureUniquePath = (target: string): string => {
@@ -364,17 +364,11 @@ export function initUpdateBridge(): void {
       const includePrerelease = Boolean(params?.includePrerelease);
       const currentVersion = app.getVersion();
 
-      // EN: Versioning note
+      // Versioning note:
       // Update comparisons are pure semver: `app.getVersion()` (packaged app version) vs release `tag_name`.
       // If you want dev/prerelease updates to work reliably, CI must inject a prerelease semver into
       // `package.json#version` for dev builds (e.g. `1.7.2-dev.1234+sha.abcdef0`) so semver ordering holds.
       // We intentionally avoid heuristics based on tag strings when the app version is a stable semver.
-      //
-      // 中文：版本号说明
-      // 更新比较严格使用 semver：`app.getVersion()`（应用自身版本号）对比 Release 的 `tag_name`。
-      // 若要 dev/预发布版本更新可靠生效，需要 CI 在 dev 构建时把 `package.json#version`
-      // 注入为带 prerelease 的 semver（如 `1.7.2-dev.1234+sha.abcdef0`），以保证比较顺序正确。
-      // 这里刻意不对“当前是稳定版版本号但用户勾选了 prerelease”做字符串猜测。
 
       const releases = await fetchGitHubReleases(repo);
       const candidates = releases
@@ -415,8 +409,7 @@ export function initUpdateBridge(): void {
       }
 
       // Defense-in-depth: do not allow arbitrary downloads from renderer.
-      // EN: We only allow GitHub release hosts (and follow redirects manually with per-hop allowlist checks).
-      // 中文：仅允许 GitHub 相关下载域名，并手动处理重定向（每一跳都校验白名单）。
+      // We only allow GitHub release hosts (and follow redirects manually with per-hop allowlist checks).
       assertAllowedUrl(params.url);
 
       const downloadId = uuid();

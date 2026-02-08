@@ -1,10 +1,11 @@
-# AionUi - Project Guide for Claude
+# Foundry - Project Guide for Claude
 
 ## Project Overview
 
-**AionUi** is a unified AI agent graphical interface that transforms command-line AI agents into a modern, efficient chat interface. It supports multiple CLI AI tools including Gemini CLI, Claude Code, CodeX, Qwen Code, and more.
+**Foundry** is a unified AI agent graphical interface that transforms command-line AI agents into a modern, efficient chat interface. It supports multiple CLI AI tools including Gemini CLI, Claude Code, CodeX, Qwen Code, and more.
 
-- **Version**: 1.7.8
+Forked and rebranded from Foundry (Foundry/Foundry) as a foundation for a larger tooling platform.
+
 - **License**: Apache-2.0
 - **Platform**: Cross-platform (macOS, Windows, Linux)
 
@@ -57,7 +58,7 @@ src/
 │   ├── hooks/               # React hooks
 │   ├── context/             # Global state (React Context)
 │   ├── services/            # Client-side services
-│   ├── i18n/                # Internationalization
+│   ├── i18n/                # Internationalisation
 │   └── utils/               # Utility functions
 ├── process/                 # Main process services
 │   ├── database/            # SQLite operations
@@ -125,7 +126,7 @@ npm run dist:linux     # Linux build
 
 - UnoCSS atomic classes preferred
 - CSS modules for component-specific styles: `*.module.css`
-- Use Arco Design semantic colors
+- Use Arco Design semantic colours
 
 ### Comments
 
@@ -148,9 +149,23 @@ fix(webui): correct modal z-index issue
 chore: remove debug console.log statements
 ```
 
-### No Claude Signature
+## Branding
 
-Do not add `🤖 Generated with Claude` or similar signatures to commits.
+All references to the original "AionUi" and "iOfficeAI" branding have been
+replaced with "Foundry". When adding new features, use "Foundry" consistently for:
+
+- Application name and metadata
+- CSS class prefixes (use `foundry-` prefix)
+- Constant prefixes (use `FOUNDRY_`)
+- Component naming (use `Foundry` prefix for base components)
+- Environment variables (use `FOUNDRY_` prefix)
+- Storage keys (use `foundry_` prefix)
+
+### External Dependencies Note
+
+`@office-ai/aioncli-core` and `@office-ai/platform` are upstream npm packages
+from the original project. These are external dependencies and their internal
+naming is outside our control.
 
 ## Architecture Notes
 
@@ -186,17 +201,13 @@ Do not add `🤖 Generated with Claude` or similar signatures to commits.
 - Iflow
 - Custom agents via MCP protocol
 
-## Internationalization
+## Internationalisation
 
-Supported languages: English (en-US), Chinese Simplified (zh-CN), Chinese Traditional (zh-TW), Japanese (ja-JP), Korean (ko-KR)
+Supported languages: English (en-US), Chinese Simplified (zh-CN), Chinese Traditional (zh-TW), Japanese (ja-JP), Korean (ko-KR), Turkish (tr-TR)
 
 Translation files: `src/renderer/i18n/locales/*.json`
 
----
-
 ## Skills Index
-
-Detailed rules and guidelines are organized into Skills for better modularity:
 
 | Skill    | Purpose                                                              | Triggers                                               |
 | -------- | -------------------------------------------------------------------- | ------------------------------------------------------ |
@@ -230,3 +241,177 @@ The following require special handling during build:
 - `tree-sitter` - Code parsing
 
 These are configured as externals in Webpack.
+
+---
+
+# Operating Principles
+
+> **Philosophy:** You are the hands; I am the architect. Move fast, but never faster than I can verify.
+
+## Current Mode: BUILD
+
+| Mode         | Behavior                                                                                       |
+| ------------ | ---------------------------------------------------------------------------------------------- |
+| **EXPLORE**  | Relaxed scope. Suggest freely. Skip planning for small experiments. Still surface assumptions. |
+| **BUILD**    | Full discipline. Plan before executing. Verify before done. Strict scope.                      |
+| **DEBUG**    | High autonomy. Chase the bug. Minimal check-ins until fixed.                                   |
+| **REFACTOR** | Propose full scope first. Get approval on blast radius. Test equivalence.                      |
+
+Say "switch to [MODE]" to change.
+
+---
+
+## Core Behaviors
+
+### Surface Assumptions (Critical)
+
+Before non-trivial work:
+
+```
+ASSUMPTIONS:
+1. [requirement interpretation]
+2. [approach]
+3. [existing code/architecture assumption]
+→ Proceeding unless corrected.
+```
+
+Skip for obvious single-file changes under 50 lines.
+
+### Stop on Confusion (Critical)
+
+When you hit inconsistencies or ambiguity: **STOP. Don't guess.**
+
+```
+CONFUSION:
+- [what conflicts]
+- Options: (a) ... (b) ...
+- Which takes precedence?
+```
+
+### Push Back When Warranted
+
+You're not a yes-machine. If my approach has problems:
+
+1. Point it out directly
+2. Explain the concrete downside
+3. Propose an alternative
+4. Accept if I override
+
+**Sycophancy is a failure mode.** Push back on architecture, security, correctness. Not on style preferences.
+
+### Scope Discipline
+
+Touch only what you're asked to touch. **No unsolicited renovation.**
+
+- Don't remove comments you don't understand
+- Don't "clean up" adjacent code
+- Don't delete "unused" code without asking
+
+### Simplicity
+
+Before finishing: Can this be fewer lines? Would a senior dev say "why didn't you just..."?
+
+**If you build 1000 lines when 100 suffice, you've failed.**
+
+---
+
+## Communication Formats
+
+### After Changes
+
+```
+CHANGES MADE:
+- [file]: [what and why]
+
+THINGS I DIDN'T TOUCH:
+- [file]: [why left alone]
+
+POTENTIAL CONCERNS:
+- [risks/edge cases]
+```
+
+"THINGS I DIDN'T TOUCH" is mandatory for multi-file changes.
+
+### Multi-Step Progress
+
+```
+PROGRESS [3/7]:
+✓ Done: [what]
+→ Now: [current]
+○ Next: [remaining]
+```
+
+### When Stuck
+
+```
+STUCK:
+- Attempting: [goal]
+- Tried: [approaches]
+- Blocked by: [specific issue]
+- Need: [what unblocks]
+```
+
+Surface blockers within 2-3 attempts. Don't spin.
+
+---
+
+## Task Files
+
+Maintain these in `tasks/`:
+
+| File           | Purpose                                   |
+| -------------- | ----------------------------------------- |
+| `todo.md`      | Current tasks with checkboxes             |
+| `lessons.md`   | Mistakes + patterns to prevent recurrence |
+| `decisions.md` | Architecture decisions with rationale     |
+
+### lessons.md Format
+
+After ANY correction, add:
+
+```markdown
+## [Date] - [Title]
+
+**Trigger:** What happened
+**Pattern:** Rule to prevent recurrence
+```
+
+**Review lessons.md at session start.**
+
+---
+
+## Decision Rules
+
+| Situation                                | Action             |
+| ---------------------------------------- | ------------------ |
+| Clear task, single file                  | Proceed            |
+| Multiple approaches, similar effort      | Pick one, note why |
+| Multiple approaches, different tradeoffs | Ask                |
+| Outside stated scope                     | Ask                |
+| Found unrelated bug                      | Note it, don't fix |
+| Architectural decision                   | Always ask         |
+
+---
+
+## Quality Gates
+
+Before marking done (BUILD mode):
+
+- [ ] Runs without errors
+- [ ] Tested happy path
+- [ ] Assumptions validated
+- [ ] Edge cases considered
+- [ ] Would a staff engineer approve?
+
+---
+
+## Failure Modes to Avoid
+
+1. Wrong assumptions unchecked → Surface early
+2. Silently resolving ambiguity → Stop and ask
+3. Sycophantic agreement → Push back
+4. Scope creep → Stay surgical
+5. Over-engineering → Simplest solution
+6. Sunk cost continuation → Stop and replan if sideways
+7. Confidence without verification → Test first
+8. Repeating mistakes → Update lessons.md

@@ -2,6 +2,10 @@ import { useMemo } from 'react';
 import useSWR from 'swr';
 import { ipcBridge } from '../../common';
 
+/** Well-known image model IDs injected when a platform has none */
+const OPENROUTER_IMAGE_MODEL = 'google/gemini-2.5-flash-preview-image-generation:free';
+const GEMINI_IMAGE_MODEL = 'gemini-2.5-flash-preview-image-generation';
+
 const useConfigModelListWithImage = () => {
   const { data } = useSWR('configModelListWithImage', () => {
     return ipcBridge.mode.getModelConfig.invoke();
@@ -9,19 +13,21 @@ const useConfigModelListWithImage = () => {
 
   const modelListWithImage = useMemo(() => {
     return (data || []).map((platform) => {
-      // 根据不同平台确保有对应的图像模型
-      if (platform.platform === 'gemini' && (!platform.baseUrl || platform.baseUrl.trim() === '')) {
-        // 原生 Google Gemini 平台（baseUrl 为空）至少要有 gemini-2.5-flash-image-preview
-        const hasGeminiImage = platform.model.some((m) => m.includes('gemini') && m.includes('image'));
-        if (!hasGeminiImage) {
-          platform.model = platform.model.concat(['gemini-2.5-flash-image-preview']);
-        }
-      } else if (platform.platform === 'OpenRouter' && platform.baseUrl && platform.baseUrl.includes('openrouter.ai')) {
-        // 官方 OpenRouter 平台（baseUrl 包含 openrouter.ai）至少要有免费图像模型
-        const hasOpenRouterImage = platform.model.some((m) => m.includes('image'));
-        if (!hasOpenRouterImage) {
-          platform.model = platform.model.concat(['google/gemini-2.5-flash-image-preview']);
-        }
+      const hasImageModel = platform.model.some((m) => {
+        const lower = m.toLowerCase();
+        return lower.includes('image') || lower.includes('dall-e');
+      });
+      if (hasImageModel) return platform;
+
+      // Inject a known image model for platforms that support it — clone to avoid mutating SWR cache
+      const lowerPlatform = platform.platform?.toLowerCase() ?? '';
+
+      if (lowerPlatform === 'openrouter' || platform.baseUrl?.includes('openrouter.ai')) {
+        return { ...platform, model: [...platform.model, OPENROUTER_IMAGE_MODEL] };
+      }
+
+      if (lowerPlatform.includes('gemini')) {
+        return { ...platform, model: [...platform.model, GEMINI_IMAGE_MODEL] };
       }
 
       return platform;

@@ -1,35 +1,34 @@
 /**
  * @license
- * Copyright 2025 AionUi (aionui.com)
+ * Copyright 2025 Foundry (foundry.app)
  * SPDX-License-Identifier: Apache-2.0
  */
 
 /**
- * AionUi 基础组件库统一导出 / AionUi base components unified exports
+ * Foundry base components unified exports
  *
- * 提供所有基础组件和类型的统一导出入口
  * Provides unified export entry for all base components and types
  */
 
-// ==================== 组件导出 / Component Exports ====================
+// ==================== Component Exports ====================
 
-export { default as AionModal } from './AionModal';
-export { default as AionCollapse } from './AionCollapse';
-export { default as AionSelect } from './AionSelect';
-export { default as AionScrollArea } from './AionScrollArea';
-export { default as AionSteps } from './AionSteps';
+export { default as FoundryModal } from './FoundryModal';
+export { default as FoundryCollapse } from './FoundryCollapse';
+export { default as FoundrySelect } from './FoundrySelect';
+export { default as FoundryScrollArea } from './FoundryScrollArea';
+export { default as FoundrySteps } from './FoundrySteps';
 
-// ==================== 类型导出 / Type Exports ====================
+// ==================== Type Exports ====================
 
-// AionModal 类型 / AionModal types
-export type { ModalSize, ModalHeaderConfig, ModalFooterConfig, ModalContentStyleConfig, AionModalProps } from './AionModal';
-export { MODAL_SIZES } from './AionModal';
+// FoundryModal types
+export type { ModalSize, ModalHeaderConfig, ModalFooterConfig, ModalContentStyleConfig, FoundryModalProps } from './FoundryModal';
+export { MODAL_SIZES } from './FoundryModal';
 
-// AionCollapse 类型 / AionCollapse types
-export type { AionCollapseProps, AionCollapseItemProps } from './AionCollapse';
+// FoundryCollapse types
+export type { FoundryCollapseProps, FoundryCollapseItemProps } from './FoundryCollapse';
 
-// AionSelect 类型 / AionSelect types
-export type { AionSelectProps } from './AionSelect';
+// FoundrySelect types
+export type { FoundrySelectProps } from './FoundrySelect';
 
-// AionSteps 类型 / AionSteps types
-export type { AionStepsProps } from './AionSteps';
+// FoundrySteps types
+export type { FoundryStepsProps } from './FoundrySteps';

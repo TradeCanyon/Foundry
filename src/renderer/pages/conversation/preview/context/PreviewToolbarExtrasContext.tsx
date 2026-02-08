@@ -1,13 +1,12 @@
 /**
  * @license
- * Copyright 2025 AionUi (aionui.com)
+ * Copyright 2025 Foundry (foundry.app)
  * SPDX-License-Identifier: Apache-2.0
  */
 
 import { createContext, useContext, type ReactNode } from 'react';
 
 /**
- * 自定义工具栏插槽的内容结构
  * Custom toolbar slot content structure
  */
 export interface PreviewToolbarExtras {
@@ -24,7 +23,6 @@ const PreviewToolbarExtrasContext = createContext<PreviewToolbarExtrasContextVal
 export const PreviewToolbarExtrasProvider = PreviewToolbarExtrasContext.Provider;
 
 /**
- * 用于在预览内容中设置额外的工具栏元素
  * Hook for preview components to set extra toolbar elements
  */
 export const usePreviewToolbarExtras = () => {

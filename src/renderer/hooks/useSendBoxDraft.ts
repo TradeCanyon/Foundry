@@ -27,10 +27,14 @@ type Draft =
       content: string;
       atPath: Array<string | FileOrFolderItem>;
       uploadFile: string[];
+    }
+  | {
+      _type: 'image';
+      content: string;
     };
 
 /**
- * 当前支持的对话类型以及对应的草稿对象
+ * Currently supported conversation types and their corresponding draft objects
  */
 type SendBoxDraftStore = {
   [K in TChatConversation['type']]: Map<string, Extract<Draft, { _type: K }>>;
@@ -40,6 +44,7 @@ const store: SendBoxDraftStore = {
   gemini: new Map(),
   acp: new Map(),
   codex: new Map(),
+  image: new Map(),
 };
 
 const setDraft = <K extends TChatConversation['type']>(type: K, conversation_id: string, draft: Extract<Draft, { _type: K }> | undefined) => {
@@ -86,7 +91,7 @@ const getDraft = <K extends TChatConversation['type']>(type: K, conversation_id:
 };
 
 /**
- * 获得一种类型下的会话草稿操作的 React Hook
+ * React Hook for managing conversation drafts of a specific type
  */
 export const getSendBoxDraftHook = <K extends TChatConversation['type']>(type: K, initialValue: Extract<Draft, { _type: K }>) => {
   function useDraft(conversation_id: string) {
@@ -124,7 +129,7 @@ export const getSendBoxDraftHook = <K extends TChatConversation['type']>(type: K
 };
 
 /**
- * 查询某个对话是否存在草稿
+ * Check if a draft exists for a conversation
  */
 export const useHasDraft = (conversation_id: string) => {
   const { data } = useSWR([`/send-box/draft/${conversation_id}`, conversation_id], ([_, id]) => {
@@ -135,7 +140,7 @@ export const useHasDraft = (conversation_id: string) => {
 };
 
 /**
- * 删除某个对话的草稿
+ * Delete the draft for a conversation
  */
 export const useDeleteDraft = () => {
   const { trigger } = useSWRMutation('/send-box/draft', (_, { arg: { conversation_id } }: { arg: { conversation_id: string } }) => {

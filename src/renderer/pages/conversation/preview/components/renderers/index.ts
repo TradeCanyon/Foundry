@@ -1,14 +1,12 @@
 /**
  * @license
- * Copyright 2025 AionUi (aionui.com)
+ * Copyright 2025 Foundry (foundry.app)
  * SPDX-License-Identifier: Apache-2.0
  */
 
 /**
- * 渲染器组件导出
  * Renderer components exports
  *
- * 特殊渲染逻辑组件
  * Components with special rendering logic
  */
 

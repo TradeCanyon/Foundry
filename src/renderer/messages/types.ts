@@ -1,12 +1,11 @@
 /**
  * @license
- * Copyright 2025 AionUi (aionui.com)
+ * Copyright 2025 Foundry (foundry.app)
  * SPDX-License-Identifier: Apache-2.0
  */
 
 /**
  * Type definitions for message tool results
- * 消息工具结果类型定义
  */
 
 export interface ImageGenerationResult {

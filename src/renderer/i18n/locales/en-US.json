@@ -1,4 +1,20 @@
 {
+  "shortcuts": {
+    "title": "Keyboard Shortcuts",
+    "categories": {
+      "general": "General",
+      "navigation": "Navigation",
+      "editor": "Editor"
+    },
+    "showHelp": "Show keyboard shortcuts",
+    "stopGeneration": "Stop generation",
+    "sendMessage": "Send message",
+    "newChat": "New conversation",
+    "openSettings": "Open settings",
+    "selectAll": "Select all",
+    "copy": "Copy",
+    "paste": "Paste"
+  },
   "common": {
     "send": "Send",
     "cancel": "Cancel",
@@ -44,6 +60,7 @@
     "deleteFailed": "Failed to delete",
     "default": "Default",
     "escToCancel": "esc to cancel",
+    "pressEnterToConfirm": "Press Enter to confirm",
     "create": "Create",
     "createSuccess": "Created successfully",
     "failed": "Failed",
@@ -51,6 +68,57 @@
     "remove": "Remove",
     "show": "Show",
     "hide": "Hide"
+  },
+  "connection": {
+    "connecting": "Connecting...",
+    "connected": "Connected",
+    "reconnecting": "Reconnecting (attempt {{current}}/{{max}})...",
+    "failed": "Connection lost",
+    "rateLimit": "Rate limit reached",
+    "rateLimitWaiting": "Waiting {{seconds}}s...",
+    "networkError": "Network error",
+    "timeout": "Request timed out",
+    "contextOverflow": "Context limit exceeded"
+  },
+  "errors": {
+    "rateLimitAction": "Wait a moment or switch to another model",
+    "networkAction": "Check your connection and try again",
+    "contextAction": "Start a new conversation or summarize the current one",
+    "authError": "Authentication failed",
+    "authAction": "Check your API key in settings",
+    "billingError": "Insufficient API credits",
+    "billingAction": "Add credits at console.anthropic.com/billing or use Claude Code CLI with your subscription",
+    "serverError": "Server error",
+    "serverAction": "The service may be temporarily unavailable. Try again shortly.",
+    "switchModel": "Switch model",
+    "newChat": "New chat",
+    "copyError": "Copy error"
+  },
+  "claudeRouting": {
+    "promptTitle": "Use Your Claude Subscription",
+    "promptDescription": "You have an Anthropic API key configured, but API calls use separate prepaid credits. Install Claude Code CLI to use your Claude subscription instead.",
+    "compactPrompt": "Install Claude Code CLI to use your subscription instead of API credits",
+    "learnMore": "Learn more about Claude Code",
+    "notNow": "Not now",
+    "recheck": "I installed it",
+    "cliDetected": "Claude Code CLI detected! Your subscription will be used.",
+    "cliNotFound": "Claude Code CLI not found. Please ensure it's installed and in your PATH.",
+    "usingCli": "Using Claude Code CLI (subscription)",
+    "usingApi": "Using Anthropic API (credits)",
+    "routingPreference": "Claude Routing",
+    "routingAuto": "Auto (prefer CLI)",
+    "routingCli": "Always use CLI",
+    "routingApi": "Always use API"
+  },
+  "models": {
+    "capabilities": {
+      "reasoning": "Extended Thinking",
+      "vision": "Vision",
+      "toolUse": "Tool Use",
+      "webSearch": "Web Search",
+      "imageGen": "Image Generation",
+      "context": "{{size}} context"
+    }
   },
   "update": {
     "modalTitle": "Software update",
@@ -71,8 +139,8 @@
     "errorTitle": "Update failed"
   },
   "login": {
-    "pageTitle": "AionUi - Sign In",
-    "brand": "AionUi",
+    "pageTitle": "Foundry - Sign In",
+    "brand": "Foundry",
     "subtitle": "Welcome back, please sign in to your account",
     "username": "Username",
     "usernamePlaceholder": "Enter your username",
@@ -103,6 +171,7 @@
     "pleaseSelectDirectory": "Please select a directory"
   },
   "preview": {
+    "unavailable": "Preview unavailable",
     "historyVersions": "History Versions",
     "currentFile": "Current File",
     "loading": "Loading...",
@@ -212,6 +281,7 @@
       "uploadFile": "Upload Files",
       "linkFolder": "Open Folder",
       "newConversation": "New Chat",
+      "newImage": "New Image",
       "multiAgentModeEnabled": "Entering multi-agent mode",
       "selectModel": "Select Model",
       "specifyWorkspace": "Chat in Folder",
@@ -219,7 +289,7 @@
       "clearWorkspace": "Remove folder",
       "openFolder": "Open Folder",
       "none": "None",
-      "quickActionsTitle": "What can AionUi do?",
+      "quickActionsTitle": "What can Foundry do?",
       "quickActionFeedback": "Got feedback or suggestions?",
       "quickActionStar": "Like us? Give us a star!"
     },
@@ -314,6 +384,13 @@
       "quotaExceededNoFallback": "Model quota reached. Please switch to another available model.",
       "quotaSwitched": "Switched to {{model}}.",
       "confirmationLoadError": "Failed to load confirmation dialog"
+    },
+    "phases": {
+      "step": "Step",
+      "analyzing": "Analyzing",
+      "planning": "Planning",
+      "executing": "Executing",
+      "verifying": "Verifying"
     },
     "contextUsage": {
       "contextUsed": "context used"
@@ -485,6 +562,8 @@
     "addModelTips": "You can paste any model name directly. Keep it consistent with the provider console for best compatibility.",
     "customOpenAI": "Custom (OpenAI Compatible)",
     "platformCustom": "Custom",
+    "platformOllama": "Ollama (Local)",
+    "platformLMStudio": "LM Studio (Local)",
     "proxyHttpOnly": "Only support http/https protocol",
     "baseUrlAutoFix": "base_url auto fix to: {{base_url}}",
     "updateConfirm": "Confirm Changes",
@@ -499,7 +578,7 @@
     "tools": "Tools",
     "webui": "WebUI",
     "channels": "Channels",
-    "webui.description": "Use AionUi as your \"24/7 Remote Assistant\" - arrange tasks from any remote device, anytime, anywhere.",
+    "webui.description": "Use Foundry as your \"24/7 Remote Assistant\" - arrange tasks from any remote device, anytime, anywhere.",
     "webui.steps": "Step 1. Turn on WebUI; Step 2. Copy the access URL; Step 3. Open in remote browser",
     "webui.configuration": "WebUI Configuration",
     "webui.enable": "Enable WebUI",
@@ -562,7 +641,7 @@
     "webui.passwordHint": "Password is shown in console on first startup. Use \"Change Password\" to reset",
     "webui.checkConsoleForPassword": "Check application console for initial password",
     "webui.browserNotSupported": "WebUI settings not available in browser",
-    "webui.browserNotSupportedDesc": "For security reasons, WebUI settings can only be managed in the desktop application. Please open the settings panel in AionUi desktop app to configure.",
+    "webui.browserNotSupportedDesc": "For security reasons, WebUI settings can only be managed in the desktop application. Please open the settings panel in Foundry desktop app to configure.",
     "webui.passwordHidden": "******",
     "webui.passwordOnlyFirstTime": "Password is only shown on first startup and will be hidden afterwards",
     "webui.resetPasswordWarning": "Please keep the reset password safe!",
@@ -615,21 +694,31 @@
     "assistant.step4": "Once approved, you can start chatting with Gemini through Telegram!",
     "channels.title": "Channels",
     "channels.telegramTitle": "Telegram",
-    "channels.telegramDesc": "Chat with AionUi assistant via Telegram",
+    "channels.telegramDesc": "Chat with Foundry assistant via Telegram",
     "channels.slackTitle": "Slack",
-    "channels.slackDesc": "Chat with AionUi assistant via Slack",
+    "channels.slackDesc": "Chat with Foundry assistant via Slack",
     "channels.discordTitle": "Discord",
-    "channels.discordDesc": "Chat with AionUi assistant via Discord",
+    "channels.discordDesc": "Chat with Foundry assistant via Discord",
     "channels.larkTitle": "Lark",
-    "channels.larkDesc": "Chat with AionUi assistant via Lark",
+    "channels.larkDesc": "Chat with Foundry assistant via Lark",
     "channels.comingSoon": "Coming Soon",
     "channels.comingSoonDesc": "Support for {{channel}} is coming soon",
     "channels.notConfigured": "Not configured",
     "channels.configured": "Configured",
     "display": "Display",
+    "image": "Image",
     "imageGeneration": "Image Generation",
     "imageGenerationToggle": "Enable image generation tool",
     "imageGenerationDescription": "Choose which configured image-capable model the tool should use by default.",
+    "imageSelectModel": "Select an image model",
+    "imageNativeTitle": "Gemini Native Image Generation",
+    "imageNativeModel": "Native Model",
+    "imageNativeDesc": "When no provider-based image model is configured, the inline image tool falls back to this Gemini native model.",
+    "imageAutoDetected": "Auto-detected from your Gemini API key. No additional setup needed.",
+    "imageGenerating": "Generating image...",
+    "imagePromptPlaceholder": "Describe the image you want to generate...",
+    "imageShowInFolder": "Show in folder",
+    "imageRegenerate": "Regenerate",
     "mcp": "MCP Integration",
     "imageGenerationModel": "Image Model",
     "imageGenerationGuide": "Image Model Setup Guide",
@@ -658,7 +747,7 @@
     "mcpImportSuccess": "Import successful",
     "mcpImportFailed": "Import failed",
     "mcpJsonInvalid": "Invalid JSON format",
-    "mcpImportDescription": "AionUi will automatically retrieve the MCP installed in your CLI Agent and import it with one click",
+    "mcpImportDescription": "Foundry will automatically retrieve the MCP installed in your CLI Agent and import it with one click",
     "mcpStepSelectAgent": "Select Agent",
     "mcpStepFetchTools": "Fetch mcp",
     "mcpStepImportSuccess": "Import Success",
@@ -747,7 +836,7 @@
     "agentModelNote": "Note: Model changes will take effect in new conversations.",
     "agentModelCustomNote": "You can also enter any custom model ID supported by the agent.",
     "customModel": "Custom model ID...",
-    "customModelPlaceholder": "Enter model ID (e.g., claude-opus-4-20250514)",
+    "customModelPlaceholder": "Enter model ID (e.g., claude-sonnet-4-5-20250929)",
     "switchToPreset": "Switch to preset models",
     "preset": "Preset",
     "noAgentsDetected": "No agents detected",
@@ -862,6 +951,7 @@
     "downloadFailed": "Failed to download",
     "imageLoadFailed": "Failed to load image",
     "scrollToBottom": "Scroll to bottom",
+    "thinking": "Thinking...",
     "unknownMessageType": "Unknown message type: {{type}}",
     "permissionRequest": "Permission Request",
     "agentRequestingPermission": "The agent is requesting permission.",
@@ -871,6 +961,7 @@
     "noOptionsAvailable": "No options available",
     "processing": "Processing...",
     "responseSentSuccessfully": "Response sent successfully",
+    "aiDisclaimer": "AI can make mistakes. Check important info.",
     "confirmation": {
       "applyChange": "Apply this change?",
       "allowExecution": "Allow execution?",
@@ -881,7 +972,24 @@
       "yesAlwaysAllowTool": "Yes, always allow tool \"{{toolName}}\" from server \"{{serverName}}\"",
       "yesAlwaysAllowServer": "Yes, always allow all tools from server \"{{serverName}}\"",
       "no": "No (esc)"
+    },
+    "edit": {
+      "title": "Edit Message",
+      "warning": "Editing this message will delete all responses after it. This cannot be undone.",
+      "warningShort": "Responses after this will be deleted",
+      "placeholder": "Edit your message...",
+      "saveAndResend": "Save & Resend",
+      "saveOnly": "Save Only"
     }
+  },
+  "confidence": {
+    "high": "High confidence",
+    "medium": "Moderate confidence",
+    "low": "Low confidence",
+    "sources": "sources",
+    "well_sourced": "Well-sourced",
+    "verify_recommended": "Consider verifying",
+    "based_on_search": "Based on web search"
   },
   "mcp": {
     "integration": {

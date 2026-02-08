@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright 2025 AionUi (aionui.com)
+ * Copyright 2025 Foundry (foundry.app)
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -15,9 +15,6 @@ import path from 'path';
 /**
  * Environment variables to inherit from user's shell.
  * These may not be available when Electron app starts from Finder/launchd.
- *
- * 需要从用户 shell 继承的环境变量。
- * 当 Electron 应用从 Finder/launchd 启动时，这些变量可能不可用。
  */
 const SHELL_INHERITED_ENV_VARS = [
   'PATH', // Required for finding CLI tools (e.g., ~/.npm-global/bin, ~/.nvm/...)
@@ -35,9 +32,6 @@ let cachedShellEnv: Record<string, string> | null = null;
 /**
  * Load environment variables from user's login shell.
  * Captures variables set in .bashrc, .zshrc, .bash_profile, etc.
- *
- * 从用户的登录 shell 加载环境变量。
- * 捕获 .bashrc、.zshrc、.bash_profile 等配置中设置的变量。
  */
 function loadShellEnvironment(): Record<string, string> {
   if (cachedShellEnv !== null) {
@@ -90,9 +84,6 @@ function loadShellEnvironment(): Record<string, string> {
 /**
  * Get enhanced environment variables by merging shell env with process.env.
  * Priority: process.env < shell env < customEnv
- *
- * 获取增强的环境变量，合并 shell 环境变量和 process.env。
- * 优先级: process.env < shell 环境 < customEnv
  */
 export function getEnhancedEnv(customEnv?: Record<string, string>): Record<string, string> {
   const shellEnv = loadShellEnvironment();
@@ -180,7 +171,7 @@ export class AcpConnection {
   // Track if initial setup is complete (to distinguish startup errors from runtime exits)
   private isSetupComplete = false;
 
-  // 通用的后端连接方法
+  // Generic backend connection method
   private async connectGenericBackend(backend: 'gemini' | 'qwen' | 'iflow' | 'droid' | 'goose' | 'auggie' | 'kimi' | 'opencode' | 'copilot' | 'qoder' | 'custom', cliPath: string, workingDir: string, acpArgs?: string[], customEnv?: Record<string, string>): Promise<void> {
     const config = createGenericSpawnConfig(cliPath, workingDir, acpArgs, customEnv);
     this.child = spawn(config.command, config.args, config.options);
@@ -410,7 +401,7 @@ export class AcpConnection {
     });
   }
 
-  // 暂停指定请求的超时计时器
+  // Pause timeout timer for specified request
   private pauseRequestTimeout(requestId: number): void {
     const request = this.pendingRequests.get(requestId);
     if (request && !request.isPaused && request.timeoutId) {
@@ -420,7 +411,7 @@ export class AcpConnection {
     }
   }
 
-  // 恢复指定请求的超时计时器
+  // Resume timeout timer for specified request
   private resumeRequestTimeout(requestId: number): void {
     const request = this.pendingRequests.get(requestId);
     if (request && request.isPaused) {
@@ -436,14 +427,14 @@ export class AcpConnection {
         }, remainingTime);
         request.isPaused = false;
       } else {
-        // 时间已超过，立即触发超时
+        // Time exceeded, trigger timeout immediately
         this.pendingRequests.delete(requestId);
         request.reject(new Error(`Request ${request.method} timed out`));
       }
     }
   }
 
-  // 暂停所有 session/prompt 请求的超时
+  // Pause timeout for all session/prompt requests
   private pauseSessionPromptTimeouts(): void {
     let _pausedCount = 0;
     for (const [id, request] of this.pendingRequests) {
@@ -454,7 +445,7 @@ export class AcpConnection {
     }
   }
 
-  // 恢复所有 session/prompt 请求的超时
+  // Resume timeout for all session/prompt requests
   private resumeSessionPromptTimeouts(): void {
     let _resumedCount = 0;
     for (const [id, request] of this.pendingRequests) {
@@ -465,7 +456,6 @@ export class AcpConnection {
     }
   }
 
-  // 重置所有 session/prompt 请求的超时计时器（在收到流式更新时调用）
   // Reset timeout timers for all session/prompt requests (called when receiving streaming updates)
   private resetSessionPromptTimeouts(): void {
     for (const [id, request] of this.pendingRequests) {
@@ -487,7 +477,7 @@ export class AcpConnection {
   private sendMessage(message: AcpRequest | AcpNotification): void {
     if (this.child?.stdin) {
       const jsonString = JSON.stringify(message);
-      // Windows 可能需要 \r\n 换行符
+      // Windows may need \r\n line ending
       const lineEnding = process.platform === 'win32' ? '\r\n' : '\n';
       const fullMessage = jsonString + lineEnding;
 
@@ -500,7 +490,7 @@ export class AcpConnection {
   private sendResponseMessage(response: AcpResponse): void {
     if (this.child?.stdin) {
       const jsonString = JSON.stringify(response);
-      // Windows 可能需要 \r\n 换行符
+      // Windows may need \r\n line ending
       const lineEnding = process.platform === 'win32' ? '\r\n' : '\n';
       const fullMessage = jsonString + lineEnding;
 
@@ -510,9 +500,9 @@ export class AcpConnection {
 
   private handleMessage(message: AcpMessage): void {
     try {
-      // 优先检查是否为 request/notification（有 method 字段）
+      // First check if it's a request/notification (has method field)
       if ('method' in message) {
-        // 直接传递给 handleIncomingRequest，switch 会过滤未知 method
+        // Pass directly to handleIncomingRequest, switch will filter unknown methods
         this.handleIncomingRequest(message as AcpIncomingMessage).catch((_error) => {
           // Handle request errors silently
         });
@@ -543,7 +533,7 @@ export class AcpConnection {
     try {
       let result = null;
 
-      // 可辨识联合类型：TypeScript 根据 method 字面量自动窄化 params 类型
+      // Discriminated union: TypeScript automatically narrows params type based on method literal
       switch (message.method) {
         case ACP_METHODS.SESSION_UPDATE:
           // Reset timeout on streaming updates - LLM is still processing
@@ -586,12 +576,12 @@ export class AcpConnection {
   private async handlePermissionRequest(params: AcpPermissionRequest): Promise<{
     outcome: { outcome: string; optionId: string };
   }> {
-    // 暂停所有 session/prompt 请求的超时计时器
+    // Pause timeout timers for all session/prompt requests
     this.pauseSessionPromptTimeouts();
     try {
       const response = await this.onPermissionRequest(params);
 
-      // 根据用户的选择决定outcome
+      // Determine outcome based on user's choice
       const optionId = response.optionId;
       const outcome = optionId.includes('reject') ? 'rejected' : 'selected';
 
@@ -602,16 +592,16 @@ export class AcpConnection {
         },
       };
     } catch (error) {
-      // 处理超时或其他错误情况，默认拒绝
+      // Handle timeout or other errors, default to reject
       console.error('Permission request failed:', error);
       return {
         outcome: {
           outcome: 'rejected',
-          optionId: 'reject_once', // 默认拒绝
+          optionId: 'reject_once', // Default to reject
         },
       };
     } finally {
-      // 无论成功还是失败，都恢复 session/prompt 请求的超时计时器
+      // Whether success or failure, resume timeout timers for session/prompt requests
       this.resumeSessionPromptTimeouts();
     }
   }
@@ -630,7 +620,6 @@ export class AcpConnection {
       await fs.mkdir(path.dirname(params.path), { recursive: true });
       await fs.writeFile(params.path, params.content, 'utf-8');
 
-      // 发送流式内容更新事件到预览面板（用于实时更新）
       // Send streaming content update to preview panel (for real-time updates)
       try {
         const { ipcBridge } = await import('@/common');
@@ -658,7 +647,6 @@ export class AcpConnection {
 
   private resolveWorkspacePath(targetPath: string): string {
     // Absolute paths are used as-is; relative paths are anchored to the conversation workspace
-    // 绝对路径保持不变， 相对路径锚定到当前会话的工作区
     if (!targetPath) return this.workingDir;
     if (path.isAbsolute(targetPath)) {
       return targetPath;
@@ -705,7 +693,7 @@ export class AcpConnection {
 
   /**
    * Ensure the cwd we send to ACP agents is relative to the actual working directory.
-   * 某些 CLI 会对绝对路径进行再次拼接，导致“套娃”路径，因此需要转换为相对路径。
+   * Some CLIs may concatenate absolute paths again, causing nested paths, so convert to relative.
    */
   private normalizeCwdForAgent(cwd?: string): string {
     const defaultPath = '.';
@@ -801,7 +789,6 @@ export class AcpConnection {
   }
 
   // Normalize read operations to the conversation workspace before touching the filesystem
-  // 访问文件前先把读取操作映射到会话工作区
   private async handleReadOperation(params: { path: string; sessionId?: string }): Promise<{ content: string }> {
     const resolvedReadPath = this.resolveWorkspacePath(params.path);
     this.onFileOperation({
@@ -813,7 +800,6 @@ export class AcpConnection {
   }
 
   // Normalize write operations and emit UI events so the workspace view stays in sync
-  // 将写入操作归一化并通知 UI，保持工作区视图同步
   private async handleWriteOperation(params: { path: string; content: string; sessionId?: string }): Promise<null> {
     const resolvedWritePath = this.resolveWorkspacePath(params.path);
     this.onFileOperation({

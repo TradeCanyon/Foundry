@@ -1,13 +1,13 @@
 /**
  * @license
- * Copyright 2025 AionUi (aionui.com)
+ * Copyright 2025 Foundry (foundry.app)
  * SPDX-License-Identifier: Apache-2.0
  */
 
 /**
  * Channel Module
  *
- * Provides remote interaction with AionUi through messaging platforms.
+ * Provides remote interaction with Foundry through messaging platforms.
  * MVP: Telegram integration with Gemini Agent.
  */
 

@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright 2025 AionUi (aionui.com)
+ * Copyright 2025 Foundry (foundry.app)
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -80,11 +80,9 @@ export class ChannelManager {
       this.pluginManager.setMessageHandler(this.actionExecutor.getMessageHandler());
 
       // Set confirm handler for tool confirmations
-      // 设置工具确认处理器
       this.pluginManager.setConfirmHandler(async (userId: string, platform: string, callId: string, value: string) => {
         console.log(`[ChannelManager] Confirm handler called: userId=${userId}, platform=${platform}, callId=${callId}, value=${value}`);
 
-        // 查找用户
         // Find user
         const db = getDatabase();
         const userResult = db.getChannelUserByPlatform(userId, platform as PluginType);
@@ -93,7 +91,6 @@ export class ChannelManager {
           return;
         }
 
-        // 查找 session 获取 conversationId
         // Find session to get conversationId
         const session = this.sessionManager?.getSession(userResult.data.id);
         if (!session?.conversationId) {
@@ -101,7 +98,6 @@ export class ChannelManager {
           return;
         }
 
-        // 调用 confirm
         // Call confirm
         try {
           await getChannelMessageService().confirm(session.conversationId, callId, value);
@@ -343,9 +339,7 @@ export class ChannelManager {
 
   /**
    * Cleanup resources when a conversation is deleted
-   * Called when a non-AionUI conversation (e.g., telegram) is deleted
-   *
-   * 当会话被删除时清理相关资源（用于 telegram 等非 AionUI 来源的会话）
+   * Called when a non-Foundry conversation (e.g., telegram) is deleted
    *
    * @param conversationId - The ID of the conversation being deleted
    * @returns true if cleanup was performed, false if no resources to clean

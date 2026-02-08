@@ -5,6 +5,7 @@ import type { IResponseMessage } from '@/common/ipcBridge';
 import { uuid } from '@/common/utils';
 import SendBox from '@/renderer/components/sendbox';
 import ThoughtDisplay, { type ThoughtData } from '@/renderer/components/ThoughtDisplay';
+import { useProcessingContextSafe } from '@/renderer/context/ConversationContext';
 import { getSendBoxDraftHook, type FileOrFolderItem } from '@/renderer/hooks/useSendBoxDraft';
 import { createSetUploadFile, useSendBoxFiles } from '@/renderer/hooks/useSendBoxFiles';
 import { useAddOrUpdateMessage } from '@/renderer/messages/hooks';
@@ -39,7 +40,6 @@ const useAcpMessage = (conversation_id: string) => {
   const [acpStatus, setAcpStatus] = useState<'connecting' | 'connected' | 'authenticated' | 'session_active' | 'disconnected' | 'error' | null>(null);
   const [aiProcessing, setAiProcessing] = useState(false); // New loading state for AI response
 
-  // Think 消息节流：限制更新频率，减少渲染次数
   // Throttle thought updates to reduce render frequency
   const thoughtThrottleRef = useRef<{
     lastUpdate: number;
@@ -79,7 +79,7 @@ const useAcpMessage = (conversation_id: string) => {
     };
   }, []);
 
-  // 清理节流定时器
+  // Clean up throttle timer
   useEffect(() => {
     return () => {
       if (thoughtThrottleRef.current.timer) {
@@ -158,6 +158,17 @@ const useAcpMessage = (conversation_id: string) => {
     setAiProcessing(false);
   }, [conversation_id]);
 
+  // Listen for external message sending events (e.g., from message editing)
+  useAddEventListener(
+    'conversation.message.sending',
+    (data) => {
+      if (data.conversation_id === conversation_id) {
+        setAiProcessing(true);
+      }
+    },
+    [conversation_id, setAiProcessing]
+  );
+
   const resetState = useCallback(() => {
     setRunning(false);
     setAiProcessing(false);
@@ -220,7 +231,13 @@ const AcpSendBox: React.FC<{
     });
   }, [conversation_id]);
 
-  // 使用 useLatestRef 保存最新的 setContent/atPath，避免重复注册 handler
+  // Sync running state with processing context for MessageList thinking indicator
+  const processingContext = useProcessingContextSafe();
+  const isProcessing = running || aiProcessing;
+  useEffect(() => {
+    processingContext?.setIsProcessing(isProcessing);
+  }, [isProcessing, processingContext]);
+
   // Use useLatestRef to keep latest setters to avoid re-registering handler
   const setContentRef = useLatestRef(setContent);
   const atPathRef = useLatestRef(atPath);
@@ -229,7 +246,7 @@ const AcpSendBox: React.FC<{
   const addOrUpdateMessage = useAddOrUpdateMessage(); // Move this here so it's available in useEffect
   const addOrUpdateMessageRef = useLatestRef(addOrUpdateMessage);
 
-  // 使用共享的文件处理逻辑
+  // Use shared file handling logic
   const { handleFilesAdded, clearFiles } = useSendBoxFiles({
     atPath,
     uploadFile,
@@ -237,11 +254,9 @@ const AcpSendBox: React.FC<{
     setUploadFile,
   });
 
-  // 注册预览面板添加到发送框的 handler
   // Register handler for adding text from preview panel to sendbox
   useEffect(() => {
     const handler = (text: string) => {
-      // 如果已有内容，添加换行和新文本；否则直接设置文本
       // If there's existing content, add newline and new text; otherwise just set the text
       const newContent = content ? `${content}\n${text}` : text;
       setContentRef.current(newContent);
@@ -282,9 +297,9 @@ const AcpSendBox: React.FC<{
       try {
         const initialMessage = JSON.parse(storedMessage);
         const { input, files } = initialMessage;
-        // ACP: 不使用 buildDisplayMessage，直接传原始 input
-        // 文件引用由后端 ACP agent 负责添加（使用复制后的实际路径）
-        // 避免消息中出现两套不一致的文件引用
+        // ACP: Don't use buildDisplayMessage, pass raw input directly
+        // File references are added by backend ACP agent (using actual paths after copying)
+        // Avoid having two inconsistent file references in the message
         const msg_id = uuid();
 
         // Start AI processing loading state (user message will be added via backend response)
@@ -301,7 +316,7 @@ const AcpSendBox: React.FC<{
         if (result && result.success === true) {
           // Initial message sent successfully
           void checkAndUpdateTitle(conversation_id, input);
-          // 等待一小段时间确保后端数据库更新完成
+          // Wait briefly to ensure backend database update is complete
           await new Promise((resolve) => setTimeout(resolve, 100));
           sessionStorage.removeItem(storageKey);
           emitter.emit('chat.history.refresh');
@@ -341,16 +356,14 @@ const AcpSendBox: React.FC<{
   const onSendHandler = async (message: string) => {
     const msg_id = uuid();
 
-    // ACP: 不使用 buildDisplayMessage，直接传原始 message
-    // 文件引用由后端 ACP agent 负责添加（使用复制后的实际路径）
-    // 避免消息中出现两套不一致的文件引用导致 Claude 读取错误文件
+    // ACP: Don't use buildDisplayMessage, pass raw message directly
+    // File references are added by backend ACP agent (using actual paths after copying)
+    // Avoid having two inconsistent file references causing Claude to read wrong files
 
-    // 合并 uploadFile 和 atPath（工作空间选择的文件）
     // Merge uploadFile and atPath (workspace selected files)
     const atPathFiles = atPath.map((item) => (typeof item === 'string' ? item : item.path));
     const allFiles = [...uploadFile, ...atPathFiles];
 
-    // 立即清空输入框，避免用户误以为消息没发送
     // Clear input immediately to avoid user thinking message wasn't sent
     setContent('');
     clearFiles();
@@ -414,7 +427,7 @@ const AcpSendBox: React.FC<{
     }
   });
 
-  // 停止会话处理函数 Stop conversation handler
+  // Stop conversation handler
   const handleStop = async (): Promise<void> => {
     // Use finally to ensure UI state is reset even if backend stop fails
     try {

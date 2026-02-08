@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright 2025 AionUi (aionui.com)
+ * Copyright 2025 Foundry (foundry.app)
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -24,11 +24,13 @@ interface EventTypes {
   'codex.selected.file.clear': void;
   'codex.workspace.refresh': void;
   'chat.history.refresh': void;
-  // 会话删除事件 / Conversation deletion event
+  // Conversation deletion event
   'conversation.deleted': [string]; // conversationId
-  // 预览面板事件 / Preview panel events
+  // Message sending event (for triggering thinking indicator)
+  'conversation.message.sending': [{ conversation_id: string }];
+  // Preview panel events
   'preview.open': [{ content: string; contentType: PreviewContentType; metadata?: { title?: string; fileName?: string } }];
-  // 填充输入框事件 / Fill sendbox input event
+  // Fill sendbox input event
   'sendbox.fill': [string]; // prompt text to fill
 }
 

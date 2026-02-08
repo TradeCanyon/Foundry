@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright 2025 AionUi (aionui.com)
+ * Copyright 2025 Foundry (foundry.app)
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -10,7 +10,7 @@ import { channel } from '@/common/ipcBridge';
 import type { IProvider, TProviderWithModel } from '@/common/storage';
 import { ConfigStorage } from '@/common/storage';
 import { uuid } from '@/common/utils';
-import AionScrollArea from '@/renderer/components/base/AionScrollArea';
+import FoundryScrollArea from '@/renderer/components/base/FoundryScrollArea';
 import { useGeminiGoogleAuthModels } from '@/renderer/hooks/useGeminiGoogleAuthModels';
 import { hasSpecificModelCapability } from '@/renderer/utils/modelCapabilities';
 import { Message } from '@arco-design/web-react';
@@ -273,7 +273,7 @@ const ChannelModalContent: React.FC = () => {
     const telegramChannel: ChannelConfig = {
       id: 'telegram',
       title: t('channels.telegramTitle', 'Telegram'),
-      description: t('channels.telegramDesc', 'Chat with AionUi assistant via Telegram'),
+      description: t('channels.telegramDesc', 'Chat with Foundry assistant via Telegram'),
       status: 'active',
       enabled: pluginStatus?.enabled || false,
       disabled: enableLoading,
@@ -286,7 +286,7 @@ const ChannelModalContent: React.FC = () => {
     const larkChannel: ChannelConfig = {
       id: 'lark',
       title: t('channels.larkTitle', 'Lark / Feishu'),
-      description: t('channels.larkDesc', 'Chat with AionUi assistant via Lark or Feishu'),
+      description: t('channels.larkDesc', 'Chat with Foundry assistant via Lark or Feishu'),
       status: 'active',
       enabled: larkPluginStatus?.enabled || false,
       disabled: larkEnableLoading,
@@ -299,7 +299,7 @@ const ChannelModalContent: React.FC = () => {
       {
         id: 'slack',
         title: t('channels.slackTitle', 'Slack'),
-        description: t('channels.slackDesc', 'Chat with AionUi assistant via Slack'),
+        description: t('channels.slackDesc', 'Chat with Foundry assistant via Slack'),
         status: 'coming_soon',
         enabled: false,
         disabled: true,
@@ -308,7 +308,7 @@ const ChannelModalContent: React.FC = () => {
       {
         id: 'discord',
         title: t('channels.discordTitle', 'Discord'),
-        description: t('channels.discordDesc', 'Chat with AionUi assistant via Discord'),
+        description: t('channels.discordDesc', 'Chat with Foundry assistant via Discord'),
         status: 'coming_soon',
         enabled: false,
         disabled: true,
@@ -327,13 +327,13 @@ const ChannelModalContent: React.FC = () => {
   };
 
   return (
-    <AionScrollArea className={isPageMode ? 'h-full' : ''}>
+    <FoundryScrollArea className={isPageMode ? 'h-full' : ''}>
       <div className='flex flex-col gap-12px'>
         {channels.map((channelConfig) => (
           <ChannelItem key={channelConfig.id} channel={channelConfig} isCollapsed={collapseKeys[channelConfig.id] || false} onToggleCollapse={() => handleToggleCollapse(channelConfig.id)} onToggleEnabled={getToggleHandler(channelConfig.id)} />
         ))}
       </div>
-    </AionScrollArea>
+    </FoundryScrollArea>
   );
 };
 

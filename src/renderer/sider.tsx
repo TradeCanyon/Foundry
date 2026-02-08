@@ -60,7 +60,7 @@ const Sider: React.FC<SiderProps> = ({ onSessionClick, collapsed = false }) => {
                   Promise.resolve(navigate('/guid')).catch((error) => {
                     console.error('Navigation failed:', error);
                   });
-                  // 点击new chat后自动隐藏sidebar / Hide sidebar after starting new chat on mobile
+                  // Hide sidebar after starting new chat on mobile
                   if (onSessionClick) {
                     onSessionClick();
                   }

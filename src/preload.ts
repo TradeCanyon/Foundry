@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright 2025 AionUi (aionui.com)
+ * Copyright 2025 Foundry (foundry.app)
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -8,8 +8,8 @@ import { contextBridge, ipcRenderer, webUtils } from 'electron';
 import { ADAPTER_BRIDGE_EVENT_KEY } from './adapter/constant';
 
 /**
- * @description 注入到renderer进程中, 用于与main进程通信
- * */
+ * Inject into renderer process for communication with main process
+ */
 contextBridge.exposeInMainWorld('electronAPI', {
   emit: (name: string, data: any) => {
     return ipcRenderer
@@ -34,13 +34,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
       ipcRenderer.off(ADAPTER_BRIDGE_EVENT_KEY, handler);
     };
   },
-  // 获取拖拽文件/目录的绝对路径 / Get absolute path for dragged file/directory
+  // Get absolute path for dragged file/directory
   getPathForFile: (file: File) => webUtils.getPathForFile(file),
-  // 直接 IPC 调用（绕过 bridge 库）/ Direct IPC calls (bypass bridge library)
+  // Direct IPC calls (bypass bridge library)
   webuiResetPassword: () => ipcRenderer.invoke('webui-direct-reset-password'),
   webuiGetStatus: () => ipcRenderer.invoke('webui-direct-get-status'),
-  // 修改密码不需要当前密码 / Change password without current password
+  // Change password without current password
   webuiChangePassword: (newPassword: string) => ipcRenderer.invoke('webui-direct-change-password', { newPassword }),
-  // 生成二维码 token / Generate QR token
+  // Generate QR token
   webuiGenerateQRToken: () => ipcRenderer.invoke('webui-direct-generate-qr-token'),
 });

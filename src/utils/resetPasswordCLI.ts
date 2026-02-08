@@ -1,10 +1,9 @@
 /**
  * @license
- * Copyright 2025 AionUi (aionui.com)
+ * Copyright 2025 Foundry (foundry.app)
  * SPDX-License-Identifier: Apache-2.0
  *
  * Reset password CLI utility for packaged applications
- * 打包应用的密码重置命令行工具
  */
 
 import crypto from 'crypto';
@@ -14,7 +13,7 @@ import bcrypt from 'bcryptjs';
 import { getDataPath, ensureDirectory } from '@process/utils';
 import path from 'path';
 
-// 颜色输出 / Color output
+// Color output
 const colors = {
   reset: '\x1b[0m',
   bright: '\x1b[1m',
@@ -45,12 +44,11 @@ const hashPasswordAsync = (password: string, saltRounds: number): Promise<string
   });
 
 // Hash password using bcrypt
-// 使用 bcrypt 哈希密码
 async function hashPassword(password: string): Promise<string> {
   return await hashPasswordAsync(password, 10);
 }
 
-// 生成随机密码 / Generate random password
+// Generate random password
 function generatePassword(): string {
   const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
   let password = '';
@@ -62,7 +60,6 @@ function generatePassword(): string {
 
 /**
  * Reset password for a user (CLI mode, works in packaged apps)
- * 重置用户密码（CLI模式,在打包应用中可用）
  *
  * @param username - Username to reset password for
  */
@@ -74,7 +71,7 @@ export async function resetPasswordCLI(username: string): Promise<void> {
     log.info(`Target user: ${username}`);
 
     // Get database path using the same logic as the main app
-    const dbPath = path.join(getDataPath(), 'aionui.db');
+    const dbPath = path.join(getDataPath(), 'foundry.db');
     log.info(`Database path: ${dbPath}`);
 
     // Ensure directory exists
@@ -90,11 +87,11 @@ export async function resetPasswordCLI(username: string): Promise<void> {
     if (!tableExists) {
       log.error('Database is not initialized yet');
       log.info('');
-      log.info('Please run AionUi at least once to initialize the database:');
-      log.info('  aionui --webui');
+      log.info('Please run Foundry at least once to initialize the database:');
+      log.info('  foundry --webui');
       log.info('');
       log.info('Then you can reset the password using:');
-      log.info('  aionui --resetpass <username>');
+      log.info('  foundry --resetpass <username>');
       process.exit(1);
     }
 

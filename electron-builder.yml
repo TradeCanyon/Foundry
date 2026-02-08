@@ -1,7 +1,7 @@
-appId: com.aionui.app
-productName: AionUi
-executableName: AionUi
-copyright: Copyright © 2024 AionUi
+appId: com.foundry.app
+productName: Foundry
+executableName: Foundry
+copyright: Copyright © 2024 Foundry
 
 asar:
   smartUnpack: true
@@ -136,15 +136,15 @@ linux:
   icon: resources/app.png
   artifactName: ${productName}-${version}-${os}-${arch}.${ext}
   category: Utility
-  maintainer: aionui
-  vendor: aionui
+  maintainer: foundry
+  vendor: foundry
   synopsis: ${description}
   description: ${description}
   desktop:
     entry:
-      Name: AionUi
+      Name: Foundry
       Comment: ${description}
-      Icon: aionui
+      Icon: foundry
       Categories: Office;Utility;
 
 npmRebuild: false
@@ -175,6 +175,6 @@ electronDownload:
 
 publish:
   provider: github
-  owner: ${env.GITHUB_REPOSITORY_OWNER:-aionui}
-  repo: ${env.GITHUB_REPOSITORY_NAME:-AionUi}
+  owner: ${env.GITHUB_REPOSITORY_OWNER:-foundry}
+  repo: ${env.GITHUB_REPOSITORY_NAME:-Foundry}
   publishAutoUpdate: false

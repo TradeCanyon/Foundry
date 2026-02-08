@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright 2025 AionUi (aionui.com)
+ * Copyright 2025 Foundry (foundry.app)
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -9,7 +9,7 @@ import { uuid } from '@/common/utils';
 import type { AcpBackend, AcpSessionUpdate, AgentMessageChunkUpdate, AgentThoughtChunkUpdate, AvailableCommandsUpdate, PlanUpdate, ToolCallUpdate, ToolCallUpdateStatus } from '@/types/acpTypes';
 
 /**
- * Adapter class to convert ACP messages to AionUI message format
+ * Adapter class to convert ACP messages to Foundry message format
  */
 export class AcpAdapter {
   private conversationId: string;
@@ -42,7 +42,7 @@ export class AcpAdapter {
   }
 
   /**
-   * Convert ACP session update to AionUI messages
+   * Convert ACP session update to Foundry messages
    */
   convertSessionUpdate(sessionUpdate: AcpSessionUpdate): TMessage[] {
     const messages: TMessage[] = [];
@@ -123,7 +123,7 @@ export class AcpAdapter {
   }
 
   /**
-   * Convert ACP session update chunk to AionUI message
+   * Convert ACP session update chunk to Foundry message
    */
   private convertSessionUpdateChunk(update: AgentMessageChunkUpdate['update']): TMessage | null {
     const msgId = this.getCurrentMessageId(); // Use consistent msg_id for streaming chunks
@@ -136,11 +136,18 @@ export class AcpAdapter {
     };
 
     if (update.content && update.content.text) {
+      const text = update.content.text;
+
+      // Filter out "Available Commands" banner that some CLI agents emit as text
+      if (text.includes('🛠️ Available Commands') || text.startsWith('Available Commands')) {
+        return null;
+      }
+
       return {
         ...baseMessage,
         type: 'text',
         content: {
-          content: update.content.text,
+          content: text,
         },
       } as IMessageText;
     }
@@ -149,7 +156,7 @@ export class AcpAdapter {
   }
 
   /**
-   * Convert ACP thought chunk to AionUI message
+   * Convert ACP thought chunk to Foundry message
    */
   private convertThoughtChunk(update: AgentThoughtChunkUpdate['update']): TMessage | null {
     const baseMessage = {
@@ -176,10 +183,10 @@ export class AcpAdapter {
   private createOrUpdateAcpToolCall(update: ToolCallUpdate): IMessageAcpToolCall | null {
     const toolCallId = update.update.toolCallId;
 
-    // 使用 toolCallId 作为 msg_id，确保同一个工具调用的消息可以被合并
+    // Use toolCallId as msg_id to ensure messages from the same tool call can be merged
     const baseMessage = {
       id: uuid(),
-      msg_id: toolCallId, // 关键：使用 toolCallId 作为 msg_id
+      msg_id: toolCallId, // Key: use toolCallId as msg_id
       conversation_id: this.conversationId,
       createdAt: Date.now(),
       position: 'left' as const,
@@ -188,7 +195,7 @@ export class AcpAdapter {
     const acpToolCallMessage: IMessageAcpToolCall = {
       ...baseMessage,
       type: 'acp_tool_call',
-      content: update, // 直接使用 ToolCallUpdate 作为 content
+      content: update, // Use ToolCallUpdate directly as content
     };
 
     this.activeToolCalls.set(toolCallId, acpToolCallMessage);
@@ -223,9 +230,9 @@ export class AcpAdapter {
     // Create updated message with the SAME msg_id so composeMessage will merge it
     const updatedMessage: IMessageAcpToolCall = {
       ...existingMessage,
-      msg_id: toolCallId, // 确保 msg_id 一致，这样 composeMessage 会合并消息
+      msg_id: toolCallId, // Ensure msg_id is consistent so composeMessage will merge messages
       content: updatedContent,
-      createdAt: Date.now(), // 更新时间戳
+      createdAt: Date.now(), // Update timestamp
     };
 
     // Update stored message
@@ -243,12 +250,12 @@ export class AcpAdapter {
   }
 
   /**
-   * Convert plan update to AionUI message
+   * Convert plan update to Foundry message
    */
   private convertPlanUpdate(update: PlanUpdate): IMessagePlan | null {
     const baseMessage = {
       id: uuid(),
-      msg_id: uuid(), // 生成独立的 msg_id，避免与其他消息合并
+      msg_id: uuid(), // Generate unique msg_id to avoid merging with other messages
       conversation_id: this.conversationId,
       createdAt: Date.now(),
       position: 'left' as const,
@@ -270,38 +277,15 @@ export class AcpAdapter {
   }
 
   /**
-   * Convert available commands update to AionUI message
+   * Convert available commands update to Foundry message
+   *
+   * Note: We suppress this by returning null to avoid cluttering the chat UI.
+   * The commands are CLI-specific and not useful in a GUI context.
+   * If needed later, we can expose commands via a /commands menu or toolbar.
    */
-  private convertAvailableCommandsUpdate(update: AvailableCommandsUpdate): TMessage | null {
-    const baseMessage = {
-      id: uuid(),
-      msg_id: uuid(), // 生成独立的 msg_id，避免与其他消息合并
-      conversation_id: this.conversationId,
-      createdAt: Date.now(),
-      position: 'left' as const,
-    };
-
-    const commandsData = update.update;
-    if (commandsData.availableCommands && commandsData.availableCommands.length > 0) {
-      const commandsList = commandsData.availableCommands
-        .map((command) => {
-          let line = `• **${command.name}**: ${command.description}`;
-          if (command.input?.hint) {
-            line += ` (${command.input.hint})`;
-          }
-          return line;
-        })
-        .join('\n');
-
-      return {
-        ...baseMessage,
-        type: 'text',
-        content: {
-          content: `🛠️ **Available Commands**\n\n${commandsList}`,
-        },
-      } as IMessageText;
-    }
-
+  private convertAvailableCommandsUpdate(_update: AvailableCommandsUpdate): TMessage | null {
+    // Suppress the "Available Commands" banner in GUI
+    // Users can access help via GUI menus instead
     return null;
   }
 }

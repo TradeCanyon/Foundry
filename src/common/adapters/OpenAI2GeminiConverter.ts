@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright 2025 AionUi (aionui.com)
+ * Copyright 2025 Foundry (foundry.app)
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -66,6 +66,9 @@ export interface GeminiRequest {
       };
     }>;
   }>;
+  config?: {
+    responseModalities?: string[];
+  };
   tools?: Array<{
     functionDeclarations: Array<{
       name: string;
@@ -83,7 +86,7 @@ export class OpenAI2GeminiConverter implements ProtocolConverter<OpenAIChatCompl
 
   constructor(config: ConverterConfig = {}) {
     this.config = {
-      defaultModel: 'gemini-1.5-flash',
+      defaultModel: 'gemini-2.5-flash',
       ...config,
     };
   }
@@ -129,15 +132,18 @@ export class OpenAI2GeminiConverter implements ProtocolConverter<OpenAIChatCompl
       }
     }
 
-    // Use image generation model if request seems to be for image generation
-    const isImageGeneration = parts.some((part) => part.text && (part.text.toLowerCase().includes('generate image') || part.text.toLowerCase().includes('create image') || part.text.toLowerCase().includes('draw') || part.text.toLowerCase().includes('make image')));
-
-    const model = isImageGeneration ? 'gemini-2.5-flash-image-preview' : this.config.defaultModel || params.model;
+    const model = params.model || this.config.defaultModel;
+    const isImageModel = model.toLowerCase().includes('image');
 
     const request: GeminiRequest = {
       model,
       contents: [{ parts }],
     };
+
+    // Enable image output when using an image generation model
+    if (isImageModel) {
+      request.config = { responseModalities: ['IMAGE', 'TEXT'] };
+    }
 
     // Add tools if present in OpenAI request
     if (params.tools && params.tools.length > 0) {

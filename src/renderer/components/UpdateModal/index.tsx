@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright 2025 AionUi (aionui.com)
+ * Copyright 2025 Foundry (foundry.app)
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -8,7 +8,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Button, Progress } from '@arco-design/web-react';
 import { CheckOne, Download, FolderOpen, Refresh, CloseOne } from '@icon-park/react';
 import { ipcBridge } from '@/common';
-import AionModal from '@/renderer/components/base/AionModal';
+import FoundryModal from '@/renderer/components/base/FoundryModal';
 import MarkdownView from '@/renderer/components/Markdown';
 import type { UpdateDownloadProgressEvent, UpdateReleaseInfo } from '@/common/updateTypes';
 import { useTranslation } from 'react-i18next';
@@ -114,11 +114,11 @@ const UpdateModal: React.FC = () => {
 
   useEffect(() => {
     const removeOpenListener = ipcBridge.update.open.on(handleOpenUpdateModal);
-    window.addEventListener('aionui-open-update-modal', handleOpenUpdateModal);
+    window.addEventListener('foundry-open-update-modal', handleOpenUpdateModal);
 
     return () => {
       removeOpenListener();
-      window.removeEventListener('aionui-open-update-modal', handleOpenUpdateModal);
+      window.removeEventListener('foundry-open-update-modal', handleOpenUpdateModal);
     };
   }, []);
 
@@ -195,7 +195,7 @@ const UpdateModal: React.FC = () => {
       case 'available':
         return (
           <div className='flex flex-col h-full'>
-            {/* 版本信息头部 / Version info header */}
+            {/* Version info header */}
             <div className='flex items-center justify-between px-24px py-16px border-b border-border-2 bg-fill-1'>
               <div className='flex items-center gap-12px'>
                 <div className='w-40px h-40px bg-[rgb(var(--primary-6))]/12 rounded-10px flex items-center justify-center'>
@@ -213,7 +213,7 @@ const UpdateModal: React.FC = () => {
               </Button>
             </div>
 
-            {/* 更新日志内容 / Release notes content */}
+            {/* Release notes content */}
             <div className='flex-1 min-h-0 overflow-y-auto px-24px py-16px custom-scrollbar'>
               {updateInfo?.name && <div className='text-14px font-500 text-t-primary mb-12px'>{updateInfo.name}</div>}
               {updateInfo?.body ? (
@@ -282,7 +282,7 @@ const UpdateModal: React.FC = () => {
   };
 
   return (
-    <AionModal
+    <FoundryModal
       visible={visible}
       onCancel={handleClose}
       size={status === 'available' ? 'medium' : 'small'}
@@ -298,7 +298,7 @@ const UpdateModal: React.FC = () => {
       }}
     >
       <div className='flex flex-col h-full w-full'>{renderContent()}</div>
-    </AionModal>
+    </FoundryModal>
   );
 };
 

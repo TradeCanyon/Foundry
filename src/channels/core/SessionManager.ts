@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright 2025 AionUi (aionui.com)
+ * Copyright 2025 Foundry (foundry.app)
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -14,7 +14,7 @@ import type { ChannelAgentType, IChannelSession, IChannelUser, PluginType } from
  * MVP Strategy: Single active session per user
  * - Each authorized user has at most one active session
  * - Creating a new session clears the previous one
- * - Sessions are linked to conversations in the main AionUI database
+ * - Sessions are linked to conversations in the main Foundry database
  */
 export class SessionManager {
   // In-memory cache of active sessions for quick lookup
@@ -71,7 +71,7 @@ export class SessionManager {
 
   /**
    * Create a new session with a specific conversation ID
-   * 使用指定的 conversationId 创建会话（用于复用现有会话）
+   * Used for reusing existing conversations
    */
   createSessionWithConversation(user: IChannelUser, conversationId: string, agentType: ChannelAgentType = 'gemini', workspace?: string): IChannelSession {
     const db = getDatabase();
@@ -171,8 +171,7 @@ export class SessionManager {
 
   /**
    * Clear session by conversation ID
-   * Used when a conversation is deleted from AionUI
-   * 根据 conversationId 清理 session（当会话从 AionUI 删除时调用）
+   * Used when a conversation is deleted from Foundry
    */
   clearSessionByConversationId(conversationId: string): IChannelSession | null {
     const db = getDatabase();

@@ -3,21 +3,72 @@ import type { IConfirmation } from '@/common/chatLib';
 import { useConversationContextSafe } from '@/renderer/context/ConversationContext';
 import { Divider, Typography } from '@arco-design/web-react';
 import type { PropsWithChildren } from 'react';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { removeStack } from '../../../utils/common';
+
+// Priority mapping for permission options - lower number = higher priority (appears first)
+// "Allow once" should be first, then "Always allow", then reject options
+const OPTION_PRIORITY: Record<string, number> = {
+  // Allow once variants (highest priority - safest single-use option)
+  allow_once: 0,
+  allow: 0,
+  proceed_once: 0,
+  proceed: 0,
+  yes: 0,
+  // Always allow variants
+  allow_always: 1,
+  always_allow: 1,
+  proceed_always: 1,
+  always: 1,
+  // Reject/cancel variants
+  reject_once: 2,
+  reject: 2,
+  deny: 2,
+  deny_once: 2,
+  no: 2,
+  cancel: 3,
+  reject_always: 4,
+  deny_always: 4,
+  always_reject: 4,
+  always_deny: 4,
+};
+
+const getOptionPriority = (option: { label?: string; value?: any }): number => {
+  // Check value (can be string or object with optionId/kind)
+  const valueStr = typeof option.value === 'string' ? option.value.toLowerCase() : '';
+  const optionId = (option.value?.optionId || '').toLowerCase();
+  const kind = (option.value?.kind || '').toLowerCase();
+  const label = (option.label || '').toLowerCase();
+
+  // Try exact matches first
+  if (valueStr && OPTION_PRIORITY[valueStr] !== undefined) return OPTION_PRIORITY[valueStr];
+  if (optionId && OPTION_PRIORITY[optionId] !== undefined) return OPTION_PRIORITY[optionId];
+  if (kind && OPTION_PRIORITY[kind] !== undefined) return OPTION_PRIORITY[kind];
+
+  // Parse from label
+  const hasAllow = label.includes('allow') || label.includes('proceed') || label.includes('yes');
+  const hasReject = label.includes('reject') || label.includes('deny') || label.includes('cancel') || label.includes('no');
+  const hasAlways = label.includes('always');
+
+  if (hasAllow && !hasAlways) return 0;
+  if (hasAllow && hasAlways) return 1;
+  if (hasReject && !hasAlways) return 2;
+  if (hasReject && hasAlways) return 4;
+
+  return 99; // Unknown options go last
+};
 
 const ConversationChatConfirm: React.FC<PropsWithChildren<{ conversation_id: string }>> = ({ conversation_id, children }) => {
   const [confirmations, setConfirmations] = useState<IConfirmation<any>[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [selectedIndex, setSelectedIndex] = useState<number>(0);
   const { t } = useTranslation();
   const conversationContext = useConversationContextSafe();
   const agentType = conversationContext?.type || 'unknown';
 
   // Check if confirmation should be auto-confirmed via backend approval store
-  // 通过后端 approval store 检查是否应该自动确认
   // Keys are parsed in backend (single source of truth)
-  // Keys 在后端解析（单一数据源）
   const checkAndAutoConfirm = useCallback(
     async (confirmation: IConfirmation<string>): Promise<boolean> => {
       // Only check gemini agent type (others don't have approval store yet)
@@ -116,24 +167,65 @@ const ConversationChatConfirm: React.FC<PropsWithChildren<{ conversation_id: str
     );
   }, [conversation_id, checkAndAutoConfirm]);
 
-  // Handle ESC key to cancel confirmation
-  useEffect(() => {
-    if (!confirmations.length) return;
+  // Get the current confirmation and sort its options
+  const confirmation = confirmations.length > 0 ? confirmations[0] : null;
 
-    const confirmation = confirmations[0];
+  // Sort options: "Allow" first, then "Always Allow", then reject options
+  const sortedOptions = useMemo(() => {
+    if (!confirmation?.options) return [];
+    return [...confirmation.options].sort((a, b) => getOptionPriority(a) - getOptionPriority(b));
+  }, [confirmation?.options]);
+
+  // Reset selected index when confirmation changes
+  useEffect(() => {
+    setSelectedIndex(0);
+  }, [confirmation?.id]);
+
+  // Confirm the selected option
+  const confirmOption = useCallback(
+    (option: { label: string; value: any }) => {
+      if (!confirmation) return;
+      setConfirmations((prev) => prev.filter((p) => p.id !== confirmation.id));
+      void ipcBridge.conversation.confirmation.confirm.invoke({
+        conversation_id,
+        callId: confirmation.callId,
+        msg_id: confirmation.id,
+        data: option.value,
+      });
+    },
+    [confirmation, conversation_id]
+  );
+
+  // Handle keyboard navigation: Enter to confirm, Arrow keys to navigate, ESC to cancel
+  useEffect(() => {
+    if (!confirmation || sortedOptions.length === 0) return;
+
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        // Find cancel option (value is 'cancel')
-        const cancelOption = confirmation.options.find((opt) => opt.value === 'cancel');
+      if (event.key === 'Enter' && event.shiftKey) {
+        // Shift+Enter: always allow
+        event.preventDefault();
+        const alwaysAllowOption = sortedOptions.find((opt) => getOptionPriority(opt) === 1);
+        if (alwaysAllowOption) {
+          confirmOption(alwaysAllowOption);
+        }
+      } else if (event.key === 'Enter') {
+        event.preventDefault();
+        const selectedOption = sortedOptions[selectedIndex];
+        if (selectedOption) {
+          confirmOption(selectedOption);
+        }
+      } else if (event.key === 'ArrowDown') {
+        event.preventDefault();
+        setSelectedIndex((prev) => (prev < sortedOptions.length - 1 ? prev + 1 : 0));
+      } else if (event.key === 'ArrowUp') {
+        event.preventDefault();
+        setSelectedIndex((prev) => (prev > 0 ? prev - 1 : sortedOptions.length - 1));
+      } else if (event.key === 'Escape') {
+        // Find cancel option
+        const cancelOption = sortedOptions.find((opt) => opt.value === 'cancel' || (typeof opt.value === 'object' && opt.value?.optionId?.includes('reject')));
         if (cancelOption) {
           event.preventDefault();
-          setConfirmations((prev) => prev.filter((p) => p.id !== confirmation.id));
-          void ipcBridge.conversation.confirmation.confirm.invoke({
-            conversation_id,
-            callId: confirmation.callId,
-            msg_id: confirmation.id,
-            data: cancelOption.value,
-          });
+          confirmOption(cancelOption);
         }
       }
     };
@@ -142,24 +234,23 @@ const ConversationChatConfirm: React.FC<PropsWithChildren<{ conversation_id: str
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [confirmations, conversation_id]);
-  // 修复 #475: 如果加载出错，显示错误信息和重试按钮
+  }, [confirmation, sortedOptions, selectedIndex, confirmOption]);
   // Fix #475: If loading fails, show error message and retry button
   if (loadError && !confirmations.length) {
     return (
       <div>
-        {/* 错误提示卡片 / Error notification card */}
+        {/* Error notification card */}
         <div
           className={`relative p-16px bg-white flex flex-col overflow-hidden m-b-20px rd-20px max-w-800px w-full mx-auto box-border`}
           style={{
             boxShadow: '0px 2px 20px 0px rgba(74, 88, 250, 0.1)',
           }}
         >
-          {/* 错误标题 / Error title */}
+          {/* Error title */}
           <div className='color-[rgba(217,45,32,1)] text-14px font-medium mb-8px'>{t('conversation.confirmationLoadError', 'Failed to load confirmation dialog')}</div>
-          {/* 错误详情 / Error details */}
+          {/* Error details */}
           <div className='text-12px color-[rgba(134,144,156,1)] mb-12px'>{loadError}</div>
-          {/* 手动重试按钮 / Manual retry button */}
+          {/* Manual retry button */}
           <button
             onClick={() => {
               setLoadError(null);
@@ -178,8 +269,7 @@ const ConversationChatConfirm: React.FC<PropsWithChildren<{ conversation_id: str
     );
   }
 
-  if (!confirmations.length) return <>{children}</>;
-  const confirmation = confirmations[0];
+  if (!confirmation) return <>{children}</>;
   const $t = (key: string, params?: Record<string, string>) => t(key, { ...params, defaultValue: key });
   return (
     <div
@@ -196,20 +286,16 @@ const ConversationChatConfirm: React.FC<PropsWithChildren<{ conversation_id: str
         </Typography.Ellipsis>
       </div>
       <div className='shrink-0'>
-        {confirmation.options.map((option, index) => {
+        {sortedOptions.map((option, index) => {
           const label = $t(option.label, option.params);
+          const isSelected = index === selectedIndex;
+          const isFirst = index === 0;
+          const isAlwaysAllow = getOptionPriority(option) === 1;
           return (
-            <div
-              onClick={() => {
-                // Note: "always allow" is stored by backend when proceed_always is confirmed
-                // 注意：后端会在确认 proceed_always 时自动存储权限
-                setConfirmations((prev) => prev.filter((p) => p.id !== confirmation.id));
-                void ipcBridge.conversation.confirmation.confirm.invoke({ conversation_id, callId: confirmation.callId, msg_id: confirmation.id, data: option.value });
-              }}
-              key={label + option.value + index}
-              className='b-1px b-solid h-30px lh-30px b-[rgba(229,230,235,1)] rd-8px px-12px hover:bg-[rgba(229,231,240,1)] cursor-pointer mt-10px'
-            >
+            <div onClick={() => confirmOption(option)} onMouseEnter={() => setSelectedIndex(index)} key={label + (typeof option.value === 'string' ? option.value : JSON.stringify(option.value)) + index} className={`b-1px b-solid h-30px lh-30px rd-8px px-12px cursor-pointer mt-10px transition-colors ${isSelected ? 'bg-[rgba(22,93,255,0.1)] b-[rgba(22,93,255,0.5)] text-[rgba(22,93,255,1)] font-medium' : 'b-[rgba(229,230,235,1)] hover:bg-[rgba(229,231,240,1)]'}`}>
               {label}
+              {isFirst && <span className='text-12px ml-8px opacity-60'>(Enter)</span>}
+              {isAlwaysAllow && <span className='text-12px ml-8px opacity-60'>(Shift+Enter)</span>}
             </div>
           );
         })}

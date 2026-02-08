@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright 2025 AionUi (aionui.com)
+ * Copyright 2025 Foundry (foundry.app)
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -8,18 +8,18 @@ import type { TMessage } from '@/common/chatLib';
 import { getDatabase } from './index';
 
 /**
- * 流式消息缓冲管理器
+ * Streaming Message Buffer Manager
  *
- * 作用：优化流式消息的数据库写入性能
+ * Purpose: Optimize database write performance for streaming messages
  *
- * 核心策略：
- * - 延迟更新：不是每个 chunk 都写数据库，而是定期批量更新
- * - 批量写入：每 300ms 或累积 20 个 chunk 后写入一次
+ * Core strategy:
+ * - Delayed updates: Instead of writing DB for each chunk, batch update periodically
+ * - Batch writes: Write once every 300ms or after accumulating 20 chunks
  *
- * 性能提升：
- * - 原本：1000 次 UPDATE（每个 chunk 一次）
- * - 优化后：~10 次 UPDATE（定期批量）
- * - 提升：100 倍
+ * Performance improvement:
+ * - Before: 1000 UPDATE operations (one per chunk)
+ * - After: ~10 UPDATE operations (periodic batch)
+ * - Improvement: 100x
  */
 
 interface StreamBuffer {
@@ -29,20 +29,31 @@ interface StreamBuffer {
   chunkCount: number;
   lastDbUpdate: number;
   updateTimer?: NodeJS.Timeout;
-  mode: 'accumulate' | 'replace'; // 每个 buffer 独立的模式，避免并发冲突
+  mode: 'accumulate' | 'replace'; // Independent mode per buffer to avoid concurrent conflicts
+  /** Unique ID for database record */
+  recordId?: string;
 }
 
+/**
+ * Status for streaming messages
+ * Note: 'partial' is represented as 'pending' with isPartial metadata
+ */
+export type StreamingStatus = 'pending' | 'finish' | 'error' | 'work';
+
+/** Marker suffix added to partial response content */
+export const PARTIAL_RESPONSE_MARKER = '\n\n---\n[Response interrupted]';
+
 interface StreamingConfig {
-  updateInterval?: number; // 更新间隔（毫秒）
-  chunkBatchSize?: number; // 每多少个 chunk 更新一次
+  updateInterval?: number; // Update interval (milliseconds)
+  chunkBatchSize?: number; // Update after how many chunks
 }
 
 export class StreamingMessageBuffer {
   private buffers = new Map<string, StreamBuffer>();
 
-  // 默认配置
-  private readonly UPDATE_INTERVAL = 300; // 300ms 更新一次
-  private readonly CHUNK_BATCH_SIZE = 20; // 或累积 20 个 chunk
+  // Default configuration
+  private readonly UPDATE_INTERVAL = 300; // Update every 300ms
+  private readonly CHUNK_BATCH_SIZE = 20; // Or accumulate 20 chunks
 
   constructor(private config?: StreamingConfig) {
     if (config?.updateInterval) {
@@ -54,56 +65,56 @@ export class StreamingMessageBuffer {
   }
 
   /**
-   * 追加流式 chunk
+   * Append streaming chunk
    *
-   * @param id
-   * @param messageId - 合并消息唯一 ID
-   * @param conversationId - 会话 ID
-   * @param chunk - 文本片段
+   * @param id - Record ID
+   * @param messageId - Unique message ID for merging
+   * @param conversationId - Conversation ID
+   * @param chunk - Text fragment
+   * @param mode - Accumulate or replace mode
    *
-   * 性能优化：批量写入而非每个 chunk 都写数据库
-   * @param mode
+   * Performance optimization: batch write instead of writing DB for each chunk
    */
   append(id: string, messageId: string, conversationId: string, chunk: string, mode: 'accumulate' | 'replace'): void {
     let buffer = this.buffers.get(messageId);
 
     if (!buffer) {
-      // 首次 chunk，初始化缓冲区（存储 mode 到 buffer 而非实例）
+      // First chunk, initialize buffer (store mode in buffer, not instance)
       buffer = {
         messageId,
         conversationId,
         currentContent: chunk,
         chunkCount: 1,
         lastDbUpdate: Date.now(),
-        mode, // 每个 buffer 使用独立的 mode，避免并发消息模式冲突
+        mode, // Each buffer uses independent mode to avoid concurrent message mode conflicts
       };
       this.buffers.set(messageId, buffer);
     } else {
-      // 根据 buffer 的模式累积或替换内容（使用 buffer.mode 而非 this.mode）
+      // Accumulate or replace content based on buffer's mode (use buffer.mode not this.mode)
       if (buffer.mode === 'accumulate') {
         buffer.currentContent += chunk;
       } else {
-        buffer.currentContent = chunk; // 替换模式：直接覆盖
+        buffer.currentContent = chunk; // Replace mode: overwrite directly
       }
       buffer.chunkCount++;
     }
 
-    // 清除旧的定时器
+    // Clear old timer
     if (buffer.updateTimer) {
       clearTimeout(buffer.updateTimer);
       buffer.updateTimer = undefined;
     }
 
-    // 判断是否需要更新数据库（仅基于数量和时间）
+    // Determine if database update needed (based on count and time only)
     const shouldUpdate =
-      buffer.chunkCount % this.CHUNK_BATCH_SIZE === 0 || // 累积足够的 chunk
-      Date.now() - buffer.lastDbUpdate > this.UPDATE_INTERVAL; // 超过时间间隔
+      buffer.chunkCount % this.CHUNK_BATCH_SIZE === 0 || // Accumulated enough chunks
+      Date.now() - buffer.lastDbUpdate > this.UPDATE_INTERVAL; // Exceeded time interval
 
     if (shouldUpdate) {
-      // 立即更新
+      // Immediate update
       this.flushBuffer(id, messageId, false);
     } else {
-      // 设置延迟更新（防止消息流中断）
+      // Set delayed update (prevent message stream interruption)
       buffer.updateTimer = setTimeout(() => {
         this.flushBuffer(id, messageId, false);
       }, this.UPDATE_INTERVAL);
@@ -111,13 +122,14 @@ export class StreamingMessageBuffer {
   }
 
   /**
-   * 刷新缓冲区到数据库
+   * Flush buffer to database
    *
-   * @param id
-   * @param messageId - 合并消息唯一消息 ID
-   * @param clearBuffer - 是否清理缓冲区（默认 false）
+   * @param id - Record ID
+   * @param messageId - Unique message ID for merging
+   * @param clearBuffer - Whether to clear buffer (default false)
+   * @param status - Message status (default 'pending')
    */
-  private flushBuffer(id: string, messageId: string, clearBuffer = false): void {
+  private flushBuffer(id: string, messageId: string, clearBuffer = false, status: StreamingStatus = 'pending'): void {
     const buffer = this.buffers.get(messageId);
     if (!buffer) return;
 
@@ -130,10 +142,13 @@ export class StreamingMessageBuffer {
         conversation_id: buffer.conversationId,
         type: 'text',
         content: { content: buffer.currentContent },
-        status: 'pending',
+        status: status,
         position: 'left',
         createdAt: Date.now(),
       };
+
+      // Store record ID for future updates
+      buffer.recordId = id;
 
       // Check if message exists in database
       const existing = db.getMessageByMsgId(buffer.conversationId, messageId, 'text');
@@ -146,10 +161,10 @@ export class StreamingMessageBuffer {
         db.insertMessage(message);
       }
 
-      // 更新最后写入时间
+      // Update last write time
       buffer.lastDbUpdate = Date.now();
 
-      // 如果需要，清理缓冲区
+      // Clear buffer if needed
       if (clearBuffer) {
         this.buffers.delete(messageId);
       }
@@ -157,7 +172,104 @@ export class StreamingMessageBuffer {
       console.error(`[StreamingBuffer] Failed to flush buffer for ${messageId}:`, error);
     }
   }
+
+  /**
+   * Flush all active buffers with partial marker
+   * Called when connection is interrupted to preserve partial responses
+   *
+   * @returns Array of messageIds that were flushed as partial
+   */
+  flushAllAsPartial(): string[] {
+    const flushedIds: string[] = [];
+
+    for (const [messageId, buffer] of this.buffers.entries()) {
+      if (buffer.currentContent && buffer.currentContent.length > 0) {
+        // Clear any pending timer
+        if (buffer.updateTimer) {
+          clearTimeout(buffer.updateTimer);
+          buffer.updateTimer = undefined;
+        }
+
+        // Add partial marker to content
+        buffer.currentContent += PARTIAL_RESPONSE_MARKER;
+
+        // Flush with pending status (will be shown with interrupted marker in UI)
+        const recordId = buffer.recordId || `partial-${messageId}-${Date.now()}`;
+        this.flushBuffer(recordId, messageId, true, 'pending');
+        flushedIds.push(messageId);
+
+        console.log(`[StreamingBuffer] Preserved partial response for ${messageId} (${buffer.currentContent.length} chars)`);
+      }
+    }
+
+    return flushedIds;
+  }
+
+  /**
+   * Flush a specific buffer with partial marker
+   * Called when a specific stream is interrupted
+   *
+   * @param messageId - The message ID to flush
+   * @returns true if the buffer was flushed, false if not found
+   */
+  flushAsPartial(messageId: string): boolean {
+    const buffer = this.buffers.get(messageId);
+    if (!buffer || !buffer.currentContent || buffer.currentContent.length === 0) {
+      return false;
+    }
+
+    // Clear any pending timer
+    if (buffer.updateTimer) {
+      clearTimeout(buffer.updateTimer);
+      buffer.updateTimer = undefined;
+    }
+
+    // Add partial marker to content
+    buffer.currentContent += PARTIAL_RESPONSE_MARKER;
+
+    // Flush with pending status
+    const recordId = buffer.recordId || `partial-${messageId}-${Date.now()}`;
+    this.flushBuffer(recordId, messageId, true, 'pending');
+
+    console.log(`[StreamingBuffer] Preserved partial response for ${messageId} (${buffer.currentContent.length} chars)`);
+    return true;
+  }
+
+  /**
+   * Complete a streaming message with final content
+   *
+   * @param id - Record ID
+   * @param messageId - Message ID
+   */
+  complete(id: string, messageId: string): void {
+    const buffer = this.buffers.get(messageId);
+    if (!buffer) return;
+
+    // Clear any pending timer
+    if (buffer.updateTimer) {
+      clearTimeout(buffer.updateTimer);
+      buffer.updateTimer = undefined;
+    }
+
+    // Flush with finish status and clear buffer
+    this.flushBuffer(id, messageId, true, 'finish');
+  }
+
+  /**
+   * Check if there's an active buffer for a message
+   */
+  hasActiveBuffer(messageId: string): boolean {
+    return this.buffers.has(messageId);
+  }
+
+  /**
+   * Get the current content length for a message buffer
+   */
+  getBufferLength(messageId: string): number {
+    const buffer = this.buffers.get(messageId);
+    return buffer?.currentContent.length ?? 0;
+  }
 }
 
-// 单例实例
+// Singleton instance
 export const streamingBuffer = new StreamingMessageBuffer();

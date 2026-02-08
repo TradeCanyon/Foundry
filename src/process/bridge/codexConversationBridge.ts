@@ -1,10 +1,10 @@
 /**
  * @license
- * Copyright 2025 AionUi (aionui.com)
+ * Copyright 2025 Foundry (foundry.app)
  * SPDX-License-Identifier: Apache-2.0
  */
 
 /**
- * 初始化 Codex 对话相关的 IPC 桥接
+ * Initialize Codex conversation related IPC bridges
  */
 export function initCodexConversationBridge(): void {}

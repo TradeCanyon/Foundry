@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright 2025 AionUi (aionui.com)
+ * Copyright 2025 Foundry (foundry.app)
  * SPDX-License-Identifier: Apache-2.0
  */
 
@@ -9,7 +9,7 @@ import { mcpService } from '@process/services/mcpServices/McpService';
 import { mcpOAuthService } from '@process/services/mcpServices/McpOAuthService';
 
 export function initMcpBridge(): void {
-  // MCP 服务相关 IPC 处理程序
+  // MCP service related IPC handlers
   ipcBridge.mcpService.getAgentMcpConfigs.provider(async (agents) => {
     try {
       const result = await mcpService.getAgentMcpConfigs(agents);
@@ -58,7 +58,7 @@ export function initMcpBridge(): void {
     }
   });
 
-  // OAuth 相关 IPC 处理程序
+  // OAuth related IPC handlers
   ipcBridge.mcpService.checkOAuthStatus.provider(async (server) => {
     try {
       const result = await mcpOAuthService.checkOAuthStatus(server);
