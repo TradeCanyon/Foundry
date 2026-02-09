@@ -1,0 +1,17 @@
+{
+  "name": "Foundry",
+  "description": "AI development platform — unified GUI for CLI agents with projects, memory, skills, and distribution channels",
+  "type": "software",
+  "created": "2026-02-04",
+  "updated": "2026-02-08",
+  "version": "0.1.0",
+  "goals": ["Transform CLI agent wrapper into complete AI development platform", "Constitution-governed agent behavior", "Persistent cross-session memory with local RAG", "Structured projects with Spark onboarding", "Multi-channel distribution (Telegram, Slack, WhatsApp, Discord, Signal)", "Ember personal assistant layer"],
+  "currentPhase": "Phase 0 — Foundation (DB migration + security hardening)",
+  "stack": {
+    "runtime": "Electron 37.x",
+    "ui": "React 19.x + Arco Design + UnoCSS",
+    "language": "TypeScript 5.8.x",
+    "database": "better-sqlite3",
+    "agents": ["Gemini CLI", "Claude Code", "Codex", "Qwen", "MCP"]
+  }
+}
