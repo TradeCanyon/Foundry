@@ -540,9 +540,200 @@ const migration_v12: IMigration = {
 };
 
 /**
+ * Migration v12 -> v13: Remove all CHECK constraints (Decision D-004)
+ * Validation moves to Zod at TypeScript layer. This is the LAST table-recreation migration.
+ * Future type/source additions no longer need migrations.
+ */
+const migration_v13: IMigration = {
+  version: 13,
+  name: 'Remove CHECK constraints — Zod validation at TypeScript layer',
+  up: (db) => {
+    // Recreate conversations table WITHOUT any CHECK constraints
+    db.prepare(`DROP TABLE IF EXISTS conversations_new`).run();
+
+    db.prepare(
+      `
+      CREATE TABLE conversations_new (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        name TEXT NOT NULL,
+        type TEXT NOT NULL,
+        extra TEXT NOT NULL,
+        model TEXT,
+        status TEXT,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL,
+        source TEXT,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      )
+    `
+    ).run();
+
+    db.prepare(`INSERT INTO conversations_new SELECT id, user_id, name, type, extra, model, status, created_at, updated_at, source FROM conversations`).run();
+    db.prepare(`DROP TABLE conversations`).run();
+    db.prepare(`ALTER TABLE conversations_new RENAME TO conversations`).run();
+
+    // Recreate indexes
+    db.prepare(`CREATE INDEX IF NOT EXISTS idx_conversations_user_id ON conversations(user_id)`).run();
+    db.prepare(`CREATE INDEX IF NOT EXISTS idx_conversations_updated_at ON conversations(updated_at)`).run();
+    db.prepare(`CREATE INDEX IF NOT EXISTS idx_conversations_type ON conversations(type)`).run();
+    db.prepare(`CREATE INDEX IF NOT EXISTS idx_conversations_user_updated ON conversations(user_id, updated_at DESC)`).run();
+    db.prepare(`CREATE INDEX IF NOT EXISTS idx_conversations_source ON conversations(source)`).run();
+    db.prepare(`CREATE INDEX IF NOT EXISTS idx_conversations_source_updated ON conversations(source, updated_at DESC)`).run();
+
+    // Recreate messages table WITHOUT CHECK constraints
+    db.prepare(`DROP TABLE IF EXISTS messages_new`).run();
+
+    db.prepare(
+      `
+      CREATE TABLE messages_new (
+        id TEXT PRIMARY KEY,
+        conversation_id TEXT NOT NULL,
+        msg_id TEXT,
+        type TEXT NOT NULL,
+        content TEXT NOT NULL,
+        position TEXT,
+        status TEXT,
+        created_at INTEGER NOT NULL,
+        FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE
+      )
+    `
+    ).run();
+
+    db.prepare(`INSERT INTO messages_new SELECT * FROM messages`).run();
+    db.prepare(`DROP TABLE messages`).run();
+    db.prepare(`ALTER TABLE messages_new RENAME TO messages`).run();
+
+    // Recreate message indexes
+    db.prepare(`CREATE INDEX IF NOT EXISTS idx_messages_conversation_id ON messages(conversation_id)`).run();
+    db.prepare(`CREATE INDEX IF NOT EXISTS idx_messages_created_at ON messages(created_at)`).run();
+    db.prepare(`CREATE INDEX IF NOT EXISTS idx_messages_type ON messages(type)`).run();
+    db.prepare(`CREATE INDEX IF NOT EXISTS idx_messages_msg_id ON messages(msg_id)`).run();
+    db.prepare(`CREATE INDEX IF NOT EXISTS idx_messages_conversation_created ON messages(conversation_id, created_at)`).run();
+
+    console.log('[Migration v13] Removed all CHECK constraints — validation now at TypeScript/Zod layer');
+  },
+  down: (db) => {
+    console.log('[Migration v13] Rolled back: No action (CHECK constraints not restored to keep forward compat)');
+  },
+};
+
+/**
+ * Migration v13 -> v14: Add Persistent Memory tables (Phase 5)
+ * memory_chunks — stores memories with FTS5 full-text search
+ * user_profile — key-value store for learned user preferences
+ */
+const migration_v14: IMigration = {
+  version: 14,
+  name: 'Add Persistent Memory tables',
+  up: (db) => {
+    // Memory chunks — core memory storage
+    db.prepare(
+      `
+      CREATE TABLE IF NOT EXISTS memory_chunks (
+        id TEXT PRIMARY KEY,
+        workspace TEXT,
+        conversation_id TEXT,
+        type TEXT NOT NULL,
+        source TEXT NOT NULL DEFAULT 'auto',
+        content TEXT NOT NULL,
+        tags TEXT,
+        importance INTEGER NOT NULL DEFAULT 5,
+        access_count INTEGER NOT NULL DEFAULT 0,
+        last_accessed INTEGER,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      )
+    `
+    ).run();
+
+    db.prepare(`CREATE INDEX IF NOT EXISTS idx_memory_workspace ON memory_chunks(workspace)`).run();
+    db.prepare(`CREATE INDEX IF NOT EXISTS idx_memory_type ON memory_chunks(type)`).run();
+    db.prepare(`CREATE INDEX IF NOT EXISTS idx_memory_importance ON memory_chunks(importance DESC)`).run();
+    db.prepare(`CREATE INDEX IF NOT EXISTS idx_memory_created ON memory_chunks(created_at DESC)`).run();
+    db.prepare(`CREATE INDEX IF NOT EXISTS idx_memory_workspace_type ON memory_chunks(workspace, type)`).run();
+    db.prepare(`CREATE INDEX IF NOT EXISTS idx_memory_conversation ON memory_chunks(conversation_id)`).run();
+
+    // FTS5 virtual table for full-text search with BM25 ranking
+    db.prepare(
+      `
+      CREATE VIRTUAL TABLE IF NOT EXISTS memory_chunks_fts USING fts5(
+        content,
+        tags,
+        content='memory_chunks',
+        content_rowid='rowid',
+        tokenize='porter unicode61'
+      )
+    `
+    ).run();
+
+    // Triggers to keep FTS index in sync
+    db.prepare(
+      `
+      CREATE TRIGGER IF NOT EXISTS memory_chunks_ai AFTER INSERT ON memory_chunks BEGIN
+        INSERT INTO memory_chunks_fts(rowid, content, tags)
+        VALUES (new.rowid, new.content, new.tags);
+      END
+    `
+    ).run();
+
+    db.prepare(
+      `
+      CREATE TRIGGER IF NOT EXISTS memory_chunks_ad AFTER DELETE ON memory_chunks BEGIN
+        INSERT INTO memory_chunks_fts(memory_chunks_fts, rowid, content, tags)
+        VALUES ('delete', old.rowid, old.content, old.tags);
+      END
+    `
+    ).run();
+
+    db.prepare(
+      `
+      CREATE TRIGGER IF NOT EXISTS memory_chunks_au AFTER UPDATE ON memory_chunks BEGIN
+        INSERT INTO memory_chunks_fts(memory_chunks_fts, rowid, content, tags)
+        VALUES ('delete', old.rowid, old.content, old.tags);
+        INSERT INTO memory_chunks_fts(rowid, content, tags)
+        VALUES (new.rowid, new.content, new.tags);
+      END
+    `
+    ).run();
+
+    // User profile — learned preferences and patterns
+    db.prepare(
+      `
+      CREATE TABLE IF NOT EXISTS user_profile (
+        id TEXT PRIMARY KEY,
+        category TEXT NOT NULL,
+        key TEXT NOT NULL,
+        value TEXT NOT NULL,
+        confidence REAL NOT NULL DEFAULT 0.5,
+        evidence_count INTEGER NOT NULL DEFAULT 1,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL,
+        UNIQUE(category, key)
+      )
+    `
+    ).run();
+
+    db.prepare(`CREATE INDEX IF NOT EXISTS idx_profile_category ON user_profile(category)`).run();
+    db.prepare(`CREATE INDEX IF NOT EXISTS idx_profile_confidence ON user_profile(confidence DESC)`).run();
+
+    console.log('[Migration v14] Added Persistent Memory tables (memory_chunks + FTS5 + user_profile)');
+  },
+  down: (db) => {
+    db.prepare(`DROP TRIGGER IF EXISTS memory_chunks_au`).run();
+    db.prepare(`DROP TRIGGER IF EXISTS memory_chunks_ad`).run();
+    db.prepare(`DROP TRIGGER IF EXISTS memory_chunks_ai`).run();
+    db.prepare(`DROP TABLE IF EXISTS memory_chunks_fts`).run();
+    db.prepare(`DROP TABLE IF EXISTS user_profile`).run();
+    db.prepare(`DROP TABLE IF EXISTS memory_chunks`).run();
+    console.log('[Migration v14] Rolled back: Removed Persistent Memory tables');
+  },
+};
+
+/**
  * All migrations in order
  */
-export const ALL_MIGRATIONS: IMigration[] = [migration_v1, migration_v2, migration_v3, migration_v4, migration_v5, migration_v6, migration_v7, migration_v8, migration_v9, migration_v10, migration_v11, migration_v12];
+export const ALL_MIGRATIONS: IMigration[] = [migration_v1, migration_v2, migration_v3, migration_v4, migration_v5, migration_v6, migration_v7, migration_v8, migration_v9, migration_v10, migration_v11, migration_v12, migration_v13, migration_v14];
 
 /**
  * Get migrations needed to upgrade from one version to another

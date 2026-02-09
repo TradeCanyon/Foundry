@@ -11,5 +11,6 @@
  */
 
 export { default as MarkdownEditor } from './MarkdownEditor';
+export { default as FoundryDocEditor } from './FoundryDocEditor';
 export { default as HTMLEditor } from './HTMLEditor';
 export { default as TextEditor } from './TextEditor';

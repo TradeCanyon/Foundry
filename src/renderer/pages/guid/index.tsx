@@ -45,6 +45,8 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next';
 import { useLocation, useNavigate } from 'react-router-dom';
 import useSWR, { mutate } from 'swr';
+import ProjectCard from '@/renderer/components/ProjectCard';
+import type { IProjectInfo } from '@/common/ipcBridge';
 import styles from './index.module.css';
 
 /**
@@ -210,6 +212,10 @@ const Guid: React.FC = () => {
   const [isInputFocused, setIsInputFocused] = useState(false);
   const isInputActive = isInputFocused;
 
+  // Fetch projects for home page cards
+  const { data: projectsData } = useSWR('projects-list', () => ipcBridge.project.list.invoke());
+  const projects = (projectsData?.success ? projectsData.data : []) || [];
+
   // Read workspace and mode from location.state (passed from tabs add button or sidebar)
   useEffect(() => {
     const state = location.state as { workspace?: string; mode?: string } | null;
@@ -304,6 +310,7 @@ const Guid: React.FC = () => {
   const isPresetAgent = Boolean(selectedAgentInfo?.isPreset);
   const [isPlusDropdownOpen, setIsPlusDropdownOpen] = useState(false);
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(true);
+  const [projectsCollapsed, setProjectsCollapsed] = useState(false);
   const [typewriterPlaceholder, setTypewriterPlaceholder] = useState('');
   const [_isTyping, setIsTyping] = useState(true);
   const mentionMatchRegex = useMemo(() => /(?:^|\s)@([^\s@]*)$/, []);
@@ -1433,7 +1440,7 @@ const Guid: React.FC = () => {
                   <FolderOpen className='m-r-8px flex-shrink-0' theme='outline' size='16' fill={iconColors.secondary} style={{ lineHeight: 0 }} />
                   <Tooltip content={dir} position='top'>
                     <span className='truncate'>
-                      {t('conversation.welcome.currentWorkspace')}: {dir}
+                      {t('conversation.welcome.currentWorkspace')}: {dir.split(/[/\\]/).pop() || dir}
                     </span>
                   </Tooltip>
                 </div>
@@ -1527,6 +1534,38 @@ const Guid: React.FC = () => {
                     <Plus theme='outline' size={14} className='line-height-0' />
                     <span className='text-13px'>{t('settings.createAssistant', { defaultValue: 'Create' })}</span>
                   </div>
+                </div>
+              )}
+            </div>
+          )}
+          {/* Recent Projects — collapsible, below chat input */}
+          {projects.length > 0 && !dir && (
+            <div className='w-full max-w-700px mx-auto mt-16px'>
+              <div className='flex items-center gap-6px px-4px py-4px cursor-pointer select-none' onClick={() => setProjectsCollapsed(!projectsCollapsed)}>
+                <Down theme='outline' size={12} fill='var(--text-tertiary)' className={`transition-transform duration-200 ${projectsCollapsed ? '-rotate-90' : ''}`} />
+                <span className='text-13px font-500' style={{ color: 'var(--text-tertiary)' }}>
+                  Projects
+                </span>
+              </div>
+              {!projectsCollapsed && (
+                <div className='grid gap-10px mt-4px' style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))' }}>
+                  {projects.slice(0, 6).map((p: IProjectInfo) => (
+                    <ProjectCard
+                      key={p.workspace}
+                      project={p}
+                      onClick={() => setDir(p.workspace)}
+                      onArchive={() => {
+                        void ipcBridge.project.archive.invoke({ workspace: p.workspace }).then(() => {
+                          void mutate('projects-list');
+                        });
+                      }}
+                      onDelete={() => {
+                        void ipcBridge.project.remove.invoke({ workspace: p.workspace }).then(() => {
+                          void mutate('projects-list');
+                        });
+                      }}
+                    />
+                  ))}
                 </div>
               )}
             </div>

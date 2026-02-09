@@ -43,7 +43,7 @@ interface PreviewToolbarProps {
   /**
    * Current view mode
    */
-  viewMode: 'source' | 'preview';
+  viewMode: 'source' | 'preview' | 'wysiwyg';
 
   /**
    * Whether split-screen mode is enabled
@@ -73,7 +73,7 @@ interface PreviewToolbarProps {
   /**
    * Set view mode
    */
-  onViewModeChange: (mode: 'source' | 'preview') => void;
+  onViewModeChange: (mode: 'source' | 'preview' | 'wysiwyg') => void;
 
   /**
    * Toggle split-screen mode
@@ -191,25 +191,45 @@ const PreviewToolbar: React.FC<PreviewToolbarProps> = ({ contentType, isMarkdown
                 >
                   {t('preview.preview')}
                 </div>
+                {/* WYSIWYG Edit Tab (Markdown only) */}
+                {isMarkdown && (
+                  <div
+                    className={`
+                    flex items-center h-full px-16px cursor-pointer transition-all text-14px font-medium
+                    ${viewMode === 'wysiwyg' ? 'text-primary border-b-2 border-primary' : 'text-t-secondary hover:text-t-primary hover:bg-bg-3'}
+                  `}
+                    onClick={() => {
+                      try {
+                        onViewModeChange('wysiwyg');
+                      } catch {
+                        // Silently ignore errors
+                      }
+                    }}
+                  >
+                    {t('preview.edit', { defaultValue: 'Edit' })}
+                  </div>
+                )}
               </div>
 
-              {/* Split-screen button */}
-              <div
-                className={`flex items-center px-8px py-4px rd-4px cursor-pointer transition-colors ${isSplitScreenEnabled ? 'bg-primary text-white' : 'text-t-secondary hover:bg-bg-3'}`}
-                onClick={() => {
-                  try {
-                    onSplitScreenToggle();
-                  } catch {
-                    // Silently ignore errors
-                  }
-                }}
-                title={isSplitScreenEnabled ? t('preview.closeSplitScreen') : t('preview.openSplitScreen')}
-              >
-                <svg width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='2'>
-                  <rect x='3' y='3' width='18' height='18' rx='2' />
-                  <line x1='12' y1='3' x2='12' y2='21' />
-                </svg>
-              </div>
+              {/* Split-screen button (hidden in WYSIWYG mode) */}
+              {viewMode !== 'wysiwyg' && (
+                <div
+                  className={`flex items-center px-8px py-4px rd-4px cursor-pointer transition-colors ${isSplitScreenEnabled ? 'bg-primary text-white' : 'text-t-secondary hover:bg-bg-3'}`}
+                  onClick={() => {
+                    try {
+                      onSplitScreenToggle();
+                    } catch {
+                      // Silently ignore errors
+                    }
+                  }}
+                  title={isSplitScreenEnabled ? t('preview.closeSplitScreen') : t('preview.openSplitScreen')}
+                >
+                  <svg width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='2'>
+                    <rect x='3' y='3' width='18' height='18' rx='2' />
+                    <line x1='12' y1='3' x2='12' y2='21' />
+                  </svg>
+                </div>
+              )}
             </>
           )}
 
@@ -253,7 +273,7 @@ const PreviewToolbar: React.FC<PreviewToolbarProps> = ({ contentType, isMarkdown
 
           {/* Snapshot and history buttons (only for editable types: markdown/html/code) */}
           {/* Show snapshot and history whenever there's an editor on screen */}
-          {((contentType === 'markdown' && (viewMode === 'source' || isSplitScreenEnabled)) || (contentType === 'html' && (viewMode === 'source' || isSplitScreenEnabled)) || (contentType === 'code' && isEditable && isEditMode)) && (
+          {((contentType === 'markdown' && (viewMode === 'source' || viewMode === 'wysiwyg' || isSplitScreenEnabled)) || (contentType === 'html' && (viewMode === 'source' || isSplitScreenEnabled)) || (contentType === 'code' && isEditable && isEditMode)) && (
             <>
               {/* Snapshot button */}
               <div className={`flex items-center gap-4px px-8px py-4px rd-4px transition-colors ${historyTarget ? 'cursor-pointer hover:bg-bg-3' : 'cursor-not-allowed opacity-50'} ${snapshotSaving ? 'opacity-60' : ''}`} onClick={historyTarget && !snapshotSaving ? onSaveSnapshot : undefined} title={historyTarget ? t('preview.saveSnapshot') : t('preview.snapshotNotSupported')}>

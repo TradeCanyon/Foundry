@@ -19,6 +19,7 @@ import { useMultiAgentDetection } from './hooks/useMultiAgentDetection';
 import { processCustomCss } from './utils/customCssProcessor';
 import UpdateModal from '@/renderer/components/UpdateModal';
 import KeyboardShortcutsHelp from '@/renderer/components/KeyboardShortcutsHelp';
+import DegradationBanner from '@/renderer/components/DegradationBanner';
 
 const useDebug = () => {
   const [count, setCount] = useState(0);
@@ -254,6 +255,7 @@ const Layout: React.FC<{
                 : undefined
             }
           >
+            <DegradationBanner />
             <Outlet />
             {multiAgentContextHolder}
             {directorySelectionContextHolder}

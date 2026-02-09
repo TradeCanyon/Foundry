@@ -98,6 +98,8 @@ const ChatLayout: React.FC<{
   headerExtra?: React.ReactNode;
   headerLeft?: React.ReactNode;
   workspaceEnabled?: boolean;
+  /** Workspace path for project badge display */
+  workspace?: string;
 }> = (props) => {
   // Workspace panel collapse state - globally persisted
   const [rightSiderCollapsed, setRightSiderCollapsed] = useState(() => {
@@ -393,6 +395,14 @@ const ChatLayout: React.FC<{
               <div>{props.headerLeft}</div>
               <FlexFullContainer className='h-full' containerClassName='flex items-center gap-16px'>
                 {!hasTabs && <span className='font-bold text-16px text-t-primary inline-block overflow-hidden text-ellipsis whitespace-nowrap shrink-0 max-w-[50%]'>{props.title}</span>}
+                {props.workspace && (
+                  <span className='inline-flex items-center gap-4px px-8px py-2px rd-full text-11px' style={{ backgroundColor: 'var(--bg-3)', color: 'var(--text-secondary)' }}>
+                    <svg width='10' height='10' viewBox='0 0 24 24' fill='currentColor' stroke='none'>
+                      <path d='M10 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z' />
+                    </svg>
+                    {props.workspace.split(/[/\\]/).pop()}
+                  </span>
+                )}
               </FlexFullContainer>
               <div className='flex items-center gap-12px'>
                 {/* headerExtra renders at top-right for items like model switchers */}

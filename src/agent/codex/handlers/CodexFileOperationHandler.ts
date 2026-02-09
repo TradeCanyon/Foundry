@@ -223,22 +223,28 @@ export class CodexFileOperationHandler {
   /**
    * Format file operation message - based on ACP's implementation
    */
+  /** Extract just the filename from a full path. */
+  private getFileName(filePath: string): string {
+    return filePath.split(/[/\\]/).pop() || filePath;
+  }
+
   private formatFileOperationMessage(operation: FileOperation): string {
+    const fileName = this.getFileName(operation.path);
     switch (operation.method) {
       case 'fs/write_text_file':
       case 'file_write': {
         const content = operation.content || '';
         const previewContent = content.length > 500 ? content.substring(0, 500) + '\n... (truncated)' : content;
-        return `📝 **File written:** \`${operation.path}\`\n\n\`\`\`\n${previewContent}\n\`\`\``;
+        return `📝 **File written:** \`${fileName}\`\n\n\`\`\`\n${previewContent}\n\`\`\``;
       }
       case 'fs/read_text_file':
       case 'file_read':
-        return `📖 **File read:** \`${operation.path}\``;
+        return `📖 **File read:** \`${fileName}\``;
       case 'fs/delete_file':
       case 'file_delete':
-        return `🗑️ **File deleted:** \`${operation.path}\``;
+        return `🗑️ **File deleted:** \`${fileName}\``;
       default:
-        return `🔧 **File operation:** \`${operation.path}\` (${operation.method})`;
+        return `🔧 **File operation:** \`${fileName}\` (${operation.method})`;
     }
   }
 

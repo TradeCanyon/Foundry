@@ -26,6 +26,7 @@ import ReactDOM from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { addImportantToAll } from '../utils/customCssProcessor';
 import LocalImageView from './LocalImageView';
+import StubCard from './StubCard';
 
 const formatCode = (code: string) => {
   const content = String(code).replace(/\n$/, '');
@@ -70,10 +71,13 @@ function CodeBlock(props: any) {
 
   return useMemo(() => {
     const { children, className, node: _node, hiddenCodeCopyButton: _hiddenCodeCopyButton, codeStyle: _codeStyle, ...rest } = props;
-    const match = /language-(\w+)/.exec(className || '');
+    const match = (className || '').match(/language-(\w+)/);
     const language = match?.[1] || 'text';
     const codeTheme = currentTheme === 'dark' ? vs2015 : vs;
-    if (!String(children).includes('\n')) {
+    const codeStr = String(children);
+
+    // Inline code (single line)
+    if (!codeStr.includes('\n')) {
       return (
         <code
           {...rest}
@@ -81,24 +85,47 @@ function CodeBlock(props: any) {
           style={{
             fontWeight: 'bold',
           }}
-          // style={{
-          //   backgroundColor: 'var(--bg-1)',
-          //   padding: '2px 4px',
-          //   margin: '0 4px',
-          //   borderRadius: '4px',
-          //   border: '1px solid',
-          //   borderColor: 'var(--bg-3)',
-          //   display: 'inline-block',
-          //   maxWidth: '100%',
-          //   overflowWrap: 'anywhere',
-          //   wordBreak: 'break-word',
-          //   whiteSpace: 'break-spaces',
-          // }}
         >
           {children}
         </code>
       );
     }
+
+    const lineCount = codeStr.split('\n').length;
+    const formattedCode = formatCode(children);
+
+    // 50+ lines → StubCard (compact file card, click to expand)
+    if (lineCount >= 50) {
+      return (
+        <div style={{ width: '100%', ...(props.codeStyle || {}) }}>
+          <StubCard
+            language={language}
+            code={formattedCode}
+            lineCount={lineCount}
+            renderExpanded={() => (
+              <SyntaxHighlighter
+                children={formattedCode}
+                language={language}
+                style={codeTheme}
+                PreTag='div'
+                customStyle={{
+                  margin: '0',
+                  border: 'none',
+                  background: 'transparent',
+                  color: 'var(--text-primary)',
+                }}
+                codeTagProps={{ style: { color: 'var(--text-primary)' } }}
+              />
+            )}
+          />
+        </div>
+      );
+    }
+
+    // 20-50 lines → auto-collapsed code block
+    const autoCollapsed = lineCount >= 20;
+    const isFolded = autoCollapsed ? (fold === undefined ? true : fold) : fold;
+
     return (
       <div style={{ width: '100%', ...(props.codeStyle || {}) }}>
         <div
@@ -116,10 +143,10 @@ function CodeBlock(props: any) {
               backgroundColor: 'var(--bg-2)',
               borderTopLeftRadius: '0.3rem',
               borderTopRightRadius: '0.3rem',
-              borderBottomLeftRadius: fold ? '0.3rem' : '0',
-              borderBottomRightRadius: fold ? '0.3rem' : '0',
+              borderBottomLeftRadius: isFolded ? '0.3rem' : '0',
+              borderBottomRightRadius: isFolded ? '0.3rem' : '0',
               padding: '6px 10px',
-              borderBottom: !fold ? '1px solid var(--bg-3)' : undefined,
+              borderBottom: !isFolded ? '1px solid var(--bg-3)' : undefined,
             }}
           >
             <span
@@ -131,28 +158,27 @@ function CodeBlock(props: any) {
               }}
             >
               {'<' + language.toLocaleLowerCase() + '>'}
+              {lineCount >= 20 && <span style={{ marginLeft: '6px', opacity: 0.7 }}>{lineCount} lines</span>}
             </span>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              {/* Copy code button */}
               <Copy
                 theme='outline'
                 size='18'
                 style={{ cursor: 'pointer' }}
                 fill='var(--text-secondary)'
                 onClick={() => {
-                  void navigator.clipboard.writeText(formatCode(children)).then(() => {
+                  void navigator.clipboard.writeText(formattedCode).then(() => {
                     Message.success('Copied');
                   });
                 }}
               />
-              {/* Fold/unfold button */}
-              {logicRender(!fold, <Up theme='outline' size='20' style={{ cursor: 'pointer' }} fill='var(--text-secondary)' onClick={() => setFlow(true)} />, <Down theme='outline' size='20' style={{ cursor: 'pointer' }} fill='var(--text-secondary)' onClick={() => setFlow(false)} />)}
+              {logicRender(!isFolded, <Up theme='outline' size='20' style={{ cursor: 'pointer' }} fill='var(--text-secondary)' onClick={() => setFlow(true)} />, <Down theme='outline' size='20' style={{ cursor: 'pointer' }} fill='var(--text-secondary)' onClick={() => setFlow(false)} />)}
             </div>
           </div>
           {logicRender(
-            !fold,
+            !isFolded,
             <SyntaxHighlighter
-              children={formatCode(children)}
+              children={formattedCode}
               language={language}
               style={codeTheme}
               PreTag='div'
@@ -236,8 +262,15 @@ const createInitStyle = (currentTheme = 'light', cssVars?: Record<string, string
   {
     margin-top:0px;
   }
-  h1,h2,h3,h4,h5,h6,p,pre{
+  h1,h2,h3,h4,h5,h6,pre{
     margin-block-start:0px;
+    margin-block-end:0px;
+  }
+  p{
+    margin-block-start:0px;
+    margin-block-end:8px;
+  }
+  p:last-child{
     margin-block-end:0px;
   }
   a{

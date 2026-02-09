@@ -462,6 +462,73 @@ export const channel = {
   userAuthorized: bridge.buildEmitter<IChannelUser>('channel.user-authorized'),
 };
 
+// ==================== Project API ====================
+
+export interface IProjectInfo {
+  workspace: string;
+  name: string;
+  description: string;
+  type: string;
+  goals: string[];
+  created: number;
+  lastActive: number;
+  archived: boolean;
+  skills: string[];
+  hasInstructions: boolean;
+}
+
+export const project = {
+  detect: bridge.buildProvider<boolean, { workspace: string }>('project.detect'),
+  init: bridge.buildProvider<IBridgeResponse<IProjectInfo>, { workspace: string; name: string; description: string; type: string; goals: string[] }>('project.init'),
+  read: bridge.buildProvider<IBridgeResponse<IProjectInfo>, { workspace: string }>('project.read'),
+  list: bridge.buildProvider<IBridgeResponse<IProjectInfo[]>, void>('project.list'),
+  archive: bridge.buildProvider<IBridgeResponse, { workspace: string }>('project.archive'),
+  remove: bridge.buildProvider<IBridgeResponse, { workspace: string }>('project.remove'),
+  getConversations: bridge.buildProvider<TChatConversation[], { workspace: string }>('project.get-conversations'),
+};
+
+// ==================== Memory API (Phase 5) ====================
+
+export interface IMemorySearchResult {
+  id: string;
+  content: string;
+  type: string;
+  workspace: string | null;
+  tags: string[];
+  importance: number;
+  createdAt: number;
+}
+
+export interface IUserProfileInfo {
+  id: string;
+  category: string;
+  key: string;
+  value: string;
+  confidence: number;
+  evidenceCount: number;
+}
+
+export interface IMemoryStats {
+  totalMemories: number;
+  projectMemories: number;
+  globalMemories: number;
+  profileEntries: number;
+}
+
+export const memory = {
+  search: bridge.buildProvider<IMemorySearchResult[], { query: string; workspace?: string }>('memory.search'),
+  list: bridge.buildProvider<IMemorySearchResult[], { workspace?: string; type?: string; limit?: number }>('memory.list'),
+  store: bridge.buildProvider<IBridgeResponse<string[]>, { content: string; type: string; workspace?: string; tags?: string[]; importance?: number }>('memory.store'),
+  remove: bridge.buildProvider<IBridgeResponse, { memoryId: string }>('memory.remove'),
+  removeWorkspace: bridge.buildProvider<IBridgeResponse<number>, { workspace: string }>('memory.remove-workspace'),
+  getProfile: bridge.buildProvider<IUserProfileInfo[]>('memory.get-profile'),
+  setProfile: bridge.buildProvider<IBridgeResponse, { category: string; key: string; value: string }>('memory.set-profile'),
+  removeProfile: bridge.buildProvider<IBridgeResponse, { entryId: string }>('memory.remove-profile'),
+  clearProfile: bridge.buildProvider<IBridgeResponse>('memory.clear-profile'),
+  getStats: bridge.buildProvider<IMemoryStats, { workspace?: string }>('memory.get-stats'),
+  extractSession: bridge.buildProvider<IBridgeResponse, { conversationId: string }>('memory.extract-session'),
+};
+
 // ==================== Claude Routing API ====================
 // Manages routing between Claude Code CLI (subscription) and Anthropic API (credits)
 // Implements subscription-first routing to minimize billing confusion
@@ -499,4 +566,68 @@ export const claudeRouting = {
   clearCache: bridge.buildProvider<void, void>('claude-routing.clear-cache'),
   /** Re-detect CLI availability */
   redetect: bridge.buildProvider<IBridgeResponse<IClaudeRoutingStatus>, void>('claude-routing.redetect'),
+};
+
+// ==================== Ember ====================
+
+export interface IEmberActivity {
+  id: string;
+  timestamp: number;
+  action: string;
+  detail: string;
+  source: string;
+  intent: string;
+  success: boolean;
+}
+
+export interface IEmberConfig {
+  personality: string;
+  autonomy: string;
+  customPrompt?: string;
+  enabled: boolean;
+}
+
+export interface IEmberResponse {
+  text: string;
+  intent: string;
+  routed?: boolean;
+  routedTo?: string;
+  activityId?: string;
+}
+
+export const ember = {
+  send: bridge.buildProvider<IEmberResponse, { input: string; workspace?: string; conversationId?: string; source?: string }>('ember.send'),
+  getActivity: bridge.buildProvider<IEmberActivity[], { limit?: number }>('ember.get-activity'),
+  getConfig: bridge.buildProvider<IEmberConfig, void>('ember.get-config'),
+  setConfig: bridge.buildProvider<void, Partial<IEmberConfig>>('ember.set-config'),
+  resetConversation: bridge.buildProvider<void, void>('ember.reset-conversation'),
+};
+
+// ==================== Voice ====================
+
+export interface IVoiceConfig {
+  sttProvider: string;
+  ttsProvider: string;
+  ttsVoice: string;
+  enabled: boolean;
+  autoSend: boolean;
+}
+
+export interface ITranscriptionResult {
+  text: string;
+  language?: string;
+  duration?: number;
+}
+
+export interface ISpeechResult {
+  audioPath: string;
+  format: string;
+}
+
+export const voice = {
+  transcribe: bridge.buildProvider<ITranscriptionResult, { audioPath: string }>('voice.transcribe'),
+  synthesize: bridge.buildProvider<ISpeechResult, { text: string }>('voice.synthesize'),
+  saveRecording: bridge.buildProvider<{ filePath: string }, { audioData: string; format?: string }>('voice.save-recording'),
+  getConfig: bridge.buildProvider<IVoiceConfig, void>('voice.get-config'),
+  setConfig: bridge.buildProvider<void, Partial<IVoiceConfig>>('voice.set-config'),
 };

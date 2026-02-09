@@ -341,3 +341,241 @@ Direct API calls, no CLI routing. Dead simple.
 - Image gen code is in tree but the Gemini fallback doesn't work (model not found)
 - Model-aware suggestions work
 - App needs full restart after any worker file changes
+
+---
+
+## Session: 2026-02-08 (Afternoon)
+
+### What Was Accomplished
+
+#### Full Platform Vision + Battle Plan
+
+1. **2,227-line brainstorming document** created covering the complete Foundry transformation:
+   - 12-phase roadmap from Foundation to Browser Agent
+   - Constitution governance system (522-line CONSTITUTION.md)
+   - Stubs (smart content cards in chat)
+   - Projects (structured workspaces with `.foundry/` folders + Spark onboarding)
+   - Persistent Memory (sqlite-vec + ONNX + bge-micro-v2 local RAG)
+   - Ember (thin personal assistant layer)
+   - Skill Library + MCP Store
+   - TipTap WYSIWYG editing suite
+   - Voice mode (Whisper STT + ElevenLabs TTS)
+   - Browser agent (extend Playwright)
+   - Channel expansion (Slack, WhatsApp, Discord, Signal; remove Lark)
+   - Competitive analysis (OpenClaw, Nanobot, ChatGPT Desktop, Cursor)
+
+2. **33 architecture decisions** resolved — zero open questions remaining
+
+3. **Claude Code Swarm development strategy** — 4-person Agent Teams (renderer, platform, security, agents) with file ownership rules, plan approval, git branching per phase
+
+4. **26 architectural gaps/risks** identified and addressed
+
+5. **Image generation bugs fixed** (7 items) — wrong model names, SWR mutation, platform checks, API routing
+
+#### Project Memory Layer (`.foundry/` structure)
+
+Established the in-project memory layer that Foundry projects will use:
+
+```
+.foundry/
+  VISION.md      # Full 2,227-line brainstorming document
+  todo.md        # Active task tracking
+  decisions.md   # 33 settled architecture decisions
+  lessons.md     # 10 lessons learned from previous sessions
+```
+
+Also created:
+
+- `BATTLEPLAN.md` — condensed execution plan (phases, teams, tasks, rollback)
+- Updated `CLAUDE.md` with Session Startup instructions, gotchas, build target
+- Updated `TODO.md` as legacy pointer to `.foundry/todo.md`
+
+### Key Decisions Made This Session
+
+1. **D-001**: "Stay thin at agent layer, orchestrate at platform layer"
+2. **D-002**: English-only for now
+3. **D-003**: Fork @office-ai/aioncli-core (medium-term)
+4. **D-004**: DB CHECK → Zod validation
+5. **D-005**: Remove Lark channel
+6. **D-010**: "Stubs" naming for content cards
+7. **D-012**: Ember = thin assistant (~1% of Claude Code)
+8. **D-014**: TipTap replaces MarkdownEditor
+9. **D-024**: Claude Code Swarm development approach
+10. See `.foundry/decisions.md` for all 33 decisions
+
+### Current Code State
+
+- Git status: clean (main branch)
+- TypeScript compiles clean
+- All previous features working
+- New `.foundry/` project structure established
+- Ready for Phase 0 execution
+
+### Next Steps
+
+**Phase 0: Foundation** — See `BATTLEPLAN.md`
+
+1. Remove DB CHECK constraints → Zod validation
+2. Real credential encryption (AES-256-GCM)
+3. Rate limiting + stronger pairing
+4. Spike sqlite-vec + ONNX in Electron (risk reduction)
+
+### Files Created This Session
+
+- `.foundry/VISION.md` (brainstorm doc, 2,227 lines)
+- `.foundry/todo.md` (active tasks)
+- `.foundry/decisions.md` (33 decisions)
+- `.foundry/lessons.md` (10 lessons)
+- `BATTLEPLAN.md` (execution plan)
+
+### Files Modified This Session
+
+- `CLAUDE.md` — Session Startup, gotchas, build target, `.foundry/` references
+- `TODO.md` — converted to legacy pointer
+- `SESSION_NOTES.md` — this entry
+
+---
+
+## Session: 2026-02-08 (Evening) — Session 4
+
+### Context
+
+Previous session (Session 3b) ran out of context mid-task while wiring the Constitution settings tab. User provided 16 reference screenshots from MiniMax Agent and Claude.ai showing UX patterns to adopt, plus 5 GitHub repos to investigate.
+
+### What Was Accomplished
+
+#### 1. Finished Constitution Tab (picked up from crash point)
+
+- Wired `ConstitutionModalContent` import, menuItems entry, and renderContent case
+- Constitution tab now fully functional in Settings modal
+
+#### 2. Full Audit of In-Flight Work (Phases 0-2)
+
+Audited all 14 uncommitted files. **Everything is COMPLETE**, not stubs:
+
+| Phase               | Files                                                     | Status      |
+| ------------------- | --------------------------------------------------------- | ----------- |
+| 0.1 DB/Zod          | schema.ts (v13), migrations.ts, types.ts                  | ✅ Complete |
+| 0.2 Crypto          | credentialCrypto.ts (AES-256-GCM + safeStorage)           | ✅ Complete |
+| 0.3 Rate limiting   | rateLimiter.ts, PairingService.ts (8-char, crypto random) | ✅ Complete |
+| 1.1 StubCard        | StubCard.tsx, Markdown.tsx (thresholds working)           | ✅ Complete |
+| 1.3 Context menu    | ConversationContextMenu.tsx, ChatHistory.tsx              | ✅ Complete |
+| 1.4 Search          | ConversationSearch.tsx (debounce + Ctrl+K)                | ✅ Complete |
+| 2.2 Constitution    | constitutionService.ts (load, cache, format)              | ✅ Complete |
+| 2.3 Constitution UI | ConstitutionModalContent.tsx + SettingsModal wiring       | ✅ Complete |
+| 2.4 Context budget  | contextBudget.ts (per-agent allocator)                    | ✅ Complete |
+| 2.5 Agent injection | agentUtils.ts (constitution + skills into prompts)        | ✅ Complete |
+
+#### 3. GitHub Research (5 repos)
+
+- **microsoft/agent-lightning** (14.3k★) — REFERENCE. RL training. Trace architecture interesting.
+- **ui-ux-pro-max-skill** (29.5k★) — REFERENCE. SKILL.md format is instructive.
+- **awesome-openclaw-skills** (11.6k★) — REFERENCE. Quality-gating patterns for marketplace.
+- **Ai-Agent-Skills** (757★) — REFERENCE. SKILL.md = YAML frontmatter + markdown = de facto standard.
+- **agentkits-marketing** (264★) — SKIP.
+
+#### 4. New Phase 1.5: SendBox UX Overhaul
+
+Added to battle plan based on user's MiniMax/Claude.ai screenshots:
+
+- **1.5.1** Suggested Action Pills (Schedules, Websites, Research, Videos, More)
+- **1.5.2** Action Pill Templates (contextual prompt suggestions)
+- **1.5.3** SendBox Settings Popover (Subagent/MCP toggles, Project Settings)
+- **1.5.4** Model Mode Selector (Air/Custom/Pro icons)
+- **1.5.5** MCP-Powered Suggestions ("From Drive", "From Calendar")
+- **1.5.6** Voice Mode Placeholder (waveform icon)
+
+#### 5. Building Phase 1.5 (in progress)
+
+Started implementation of SendBox UX overhaul.
+
+### Project Files Updated
+
+- `.foundry/todo.md` — Phases 0-2 marked complete, Phase 1.5 added, research documented
+- `BATTLEPLAN.md` — Phases 0-2 marked complete, Phase 1.5 added with full task breakdown
+- `SESSION_NOTES.md` — this entry
+
+### Deferred Items
+
+- **1.2 StubStream.tsx** — needs message streaming status integration
+- **0.T Tests** — unit tests for Phase 0
+- **0.V Verify** — npm test && npm start
+- **0.S sqlite-vec spike** — deferred to Phase 5
+
+### Current Code State
+
+- All Phase 0-2 code implemented but uncommitted on main
+- Constitution settings tab fully wired
+- Building Phase 1.5 SendBox UX
+
+---
+
+## Session: 2026-02-08 (Late Evening) — Session 5
+
+### Context
+
+Continuation of Session 4 after context window ran out. Phase 1.5 tasks 1.5.1-1.5.4 had components created and wired into GeminiSendBox/GeminiChat only.
+
+### What Was Accomplished
+
+#### 1. Cross-Agent Toolbar Integration
+
+Wired ModelModeSelector, SendBoxSettingsPopover, and VoiceModeButton into ALL three agent SendBoxes:
+
+- **GeminiSendBox** — already had ModelModeSelector + Settings, added VoiceModeButton
+- **CodexSendBox** — added ModelModeSelector (sendButtonPrefix), SendBoxSettingsPopover + VoiceModeButton (tools)
+- **AcpSendBox** — same as CodexSendBox
+
+#### 2. Cross-Agent Action Pills Integration
+
+Wired SuggestedActionPills + ActionTemplates into ALL three Chat containers:
+
+- **GeminiChat** — already had pills (Session 4)
+- **CodexChat** — added useMessageList, useActionPills, pills below SendBox, sendbox.fill event
+- **AcpChat** — same as CodexChat
+
+#### 3. VoiceModeButton (Task 1.5.6)
+
+Created `VoiceModeButton.tsx` — microphone SVG icon with tooltip "Voice mode (coming soon)". Placeholder for Phase 10.
+
+#### 4. Codex CLI Confirmation
+
+Confirmed Foundry has full native Codex CLI support via JSON-RPC over stdio. No additional SDK needed.
+
+### Files Created
+
+- `src/renderer/components/VoiceModeButton.tsx`
+
+### Files Modified
+
+- `src/renderer/pages/conversation/codex/CodexSendBox.tsx` — imports, modelMode state, toolbar components
+- `src/renderer/pages/conversation/codex/CodexChat.tsx` — action pills, useMessageList, HOC.Wrapper
+- `src/renderer/pages/conversation/acp/AcpSendBox.tsx` — imports, modelMode state, toolbar components
+- `src/renderer/pages/conversation/acp/AcpChat.tsx` — action pills, useMessageList
+- `src/renderer/pages/conversation/gemini/GeminiSendBox.tsx` — added VoiceModeButton import + usage
+- `.foundry/todo.md` — tasks 1.5.1-1.5.4, 1.5.6 marked complete
+- `SESSION_NOTES.md` — this entry
+
+### Phase 1.5 Status
+
+| Task                          | Status   | Notes                     |
+| ----------------------------- | -------- | ------------------------- |
+| 1.5.1 SuggestedActionPills    | ✅       | All 3 agents              |
+| 1.5.2 ActionTemplates         | ✅       | All 3 agents              |
+| 1.5.3 SendBoxSettingsPopover  | ✅       | All 3 agents              |
+| 1.5.4 ModelModeSelector       | ✅       | All 3 agents              |
+| 1.5.5 MCP-Powered Suggestions | Deferred | Needs MCP Store (Phase 8) |
+| 1.5.6 VoiceModeButton         | ✅       | Placeholder, all 3 agents |
+
+### Current Code State
+
+- TypeScript compiles clean
+- All Phase 0-2 + Phase 1.5 code implemented (uncommitted on main)
+- Phase 1.5 effectively complete (1.5.5 deferred to Phase 8 since it needs real MCP connections)
+- Ready for Phase 3: Projects Foundation
+
+### Next Steps (if session continues)
+
+1. Build Phase 1.5 SendBox UX (action pills, settings popover, mode selector)
+2. Phase 3: Projects Foundation
+3. Eventually: commit all work with proper git flow

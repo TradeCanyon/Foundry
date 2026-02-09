@@ -11,8 +11,8 @@ import fs from 'fs';
 import path from 'path';
 import { runMigrations as executeMigrations } from './migrations';
 import { CURRENT_DB_VERSION, getDatabaseVersion, initSchema, setDatabaseVersion } from './schema';
-import type { IConversationRow, IMessageRow, IPaginatedResult, IQueryResult, IUser, TChatConversation, TMessage } from './types';
-import { conversationToRow, messageToRow, rowToConversation, rowToMessage } from './types';
+import type { IConversationRow, IMemoryChunkRow, IMessageRow, IPaginatedResult, IQueryResult, IUser, IUserProfileRow, IMemoryChunk, IUserProfileEntry, TChatConversation, TMessage } from './types';
+import { conversationToRow, messageToRow, rowToConversation, rowToMemoryChunk, rowToMessage, rowToUserProfile } from './types';
 import type { IChannelPluginConfig, IChannelUser, IChannelSession, IChannelPairingRequest, IChannelUserRow, IChannelSessionRow, IChannelPairingCodeRow, PluginType, PluginStatus } from '@/channels/types';
 import { rowToChannelUser, rowToChannelSession, rowToPairingRequest } from '@/channels/types';
 import { encryptCredentials, decryptCredentials } from '@/channels/utils/credentialCrypto';
@@ -1112,10 +1112,207 @@ export class FoundryDatabase {
   }
 
   /**
+   * ==================
+   * Memory operations (Phase 5)
+   * ==================
+   */
+
+  /** Insert a memory chunk */
+  insertMemoryChunk(chunk: { id: string; workspace?: string | null; conversationId?: string | null; type: string; source?: string; content: string; tags?: string[]; importance?: number }): IQueryResult<IMemoryChunk> {
+    try {
+      const now = Date.now();
+      this.db
+        .prepare(
+          `INSERT INTO memory_chunks (id, workspace, conversation_id, type, source, content, tags, importance, access_count, last_accessed, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, NULL, ?, ?)`
+        )
+        .run(chunk.id, chunk.workspace ?? null, chunk.conversationId ?? null, chunk.type, chunk.source ?? 'auto', chunk.content, chunk.tags ? JSON.stringify(chunk.tags) : null, chunk.importance ?? 5, now, now);
+
+      const row = this.db.prepare('SELECT * FROM memory_chunks WHERE id = ?').get(chunk.id) as IMemoryChunkRow;
+      return { success: true, data: rowToMemoryChunk(row) };
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  /** Search memories using FTS5 (BM25 ranked) */
+  searchMemories(query: string, workspace?: string | null, limit = 20): IQueryResult<IMemoryChunk[]> {
+    try {
+      const rows = this.db
+        .prepare(
+          `SELECT mc.*
+         FROM memory_chunks mc
+         JOIN memory_chunks_fts fts ON mc.rowid = fts.rowid
+         WHERE memory_chunks_fts MATCH ?
+           AND (? IS NULL OR mc.workspace IS NULL OR mc.workspace = ?)
+         ORDER BY bm25(memory_chunks_fts)
+         LIMIT ?`
+        )
+        .all(query, workspace ?? null, workspace ?? null, limit) as IMemoryChunkRow[];
+
+      return { success: true, data: rows.map(rowToMemoryChunk) };
+    } catch (error: any) {
+      return { success: false, error: error.message, data: [] };
+    }
+  }
+
+  /** Get memories by workspace (most recent + most important first) */
+  getMemoriesByWorkspace(workspace: string | null, limit = 50): IQueryResult<IMemoryChunk[]> {
+    try {
+      const rows = this.db
+        .prepare(
+          `SELECT * FROM memory_chunks
+         WHERE workspace IS ? OR workspace IS NULL
+         ORDER BY importance DESC, created_at DESC
+         LIMIT ?`
+        )
+        .all(workspace, limit) as IMemoryChunkRow[];
+
+      return { success: true, data: rows.map(rowToMemoryChunk) };
+    } catch (error: any) {
+      return { success: false, error: error.message, data: [] };
+    }
+  }
+
+  /** Get memories by type */
+  getMemoriesByType(type: string, workspace?: string | null, limit = 50): IQueryResult<IMemoryChunk[]> {
+    try {
+      const rows = this.db
+        .prepare(
+          `SELECT * FROM memory_chunks
+         WHERE type = ?
+           AND (? IS NULL OR workspace IS NULL OR workspace = ?)
+         ORDER BY importance DESC, created_at DESC
+         LIMIT ?`
+        )
+        .all(type, workspace ?? null, workspace ?? null, limit) as IMemoryChunkRow[];
+
+      return { success: true, data: rows.map(rowToMemoryChunk) };
+    } catch (error: any) {
+      return { success: false, error: error.message, data: [] };
+    }
+  }
+
+  /** Record memory access (for recency/frequency weighting) */
+  touchMemory(memoryId: string): void {
+    try {
+      this.db.prepare(`UPDATE memory_chunks SET access_count = access_count + 1, last_accessed = ? WHERE id = ?`).run(Date.now(), memoryId);
+    } catch {
+      // Non-critical
+    }
+  }
+
+  /** Delete a memory chunk */
+  deleteMemoryChunk(memoryId: string): IQueryResult<boolean> {
+    try {
+      const result = this.db.prepare('DELETE FROM memory_chunks WHERE id = ?').run(memoryId);
+      return { success: true, data: result.changes > 0 };
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  /** Delete all memories for a workspace */
+  deleteWorkspaceMemories(workspace: string): IQueryResult<number> {
+    try {
+      const result = this.db.prepare('DELETE FROM memory_chunks WHERE workspace = ?').run(workspace);
+      return { success: true, data: result.changes };
+    } catch (error: any) {
+      return { success: false, error: error.message, data: 0 };
+    }
+  }
+
+  /** Get memory chunk count */
+  getMemoryCount(workspace?: string | null): IQueryResult<number> {
+    try {
+      const row = this.db
+        .prepare(
+          `SELECT COUNT(*) as count FROM memory_chunks
+         WHERE (? IS NULL OR workspace IS NULL OR workspace = ?)`
+        )
+        .get(workspace ?? null, workspace ?? null) as { count: number };
+      return { success: true, data: row.count };
+    } catch (error: any) {
+      return { success: false, error: error.message, data: 0 };
+    }
+  }
+
+  /**
+   * ==================
+   * User Profile operations (Phase 5)
+   * ==================
+   */
+
+  /** Get all user profile entries */
+  getUserProfile(): IQueryResult<IUserProfileEntry[]> {
+    try {
+      const rows = this.db.prepare('SELECT * FROM user_profile ORDER BY category, confidence DESC').all() as IUserProfileRow[];
+      return { success: true, data: rows.map(rowToUserProfile) };
+    } catch (error: any) {
+      return { success: false, error: error.message, data: [] };
+    }
+  }
+
+  /** Get profile entries by category */
+  getUserProfileByCategory(category: string): IQueryResult<IUserProfileEntry[]> {
+    try {
+      const rows = this.db.prepare('SELECT * FROM user_profile WHERE category = ? ORDER BY confidence DESC').all(category) as IUserProfileRow[];
+      return { success: true, data: rows.map(rowToUserProfile) };
+    } catch (error: any) {
+      return { success: false, error: error.message, data: [] };
+    }
+  }
+
+  /** Upsert a user profile entry (learns over time) */
+  upsertUserProfile(entry: { id: string; category: string; key: string; value: string; confidence?: number }): IQueryResult<boolean> {
+    try {
+      const now = Date.now();
+      this.db
+        .prepare(
+          `INSERT INTO user_profile (id, category, key, value, confidence, evidence_count, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, 1, ?, ?)
+         ON CONFLICT(category, key) DO UPDATE SET
+           value = excluded.value,
+           confidence = MIN(1.0, confidence + 0.1),
+           evidence_count = evidence_count + 1,
+           updated_at = excluded.updated_at`
+        )
+        .run(entry.id, entry.category, entry.key, entry.value, entry.confidence ?? 0.5, now, now);
+      return { success: true, data: true };
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  /** Delete a user profile entry */
+  deleteUserProfileEntry(entryId: string): IQueryResult<boolean> {
+    try {
+      const result = this.db.prepare('DELETE FROM user_profile WHERE id = ?').run(entryId);
+      return { success: true, data: result.changes > 0 };
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  /** Clear entire user profile */
+  clearUserProfile(): IQueryResult<number> {
+    try {
+      const result = this.db.prepare('DELETE FROM user_profile').run();
+      return { success: true, data: result.changes };
+    } catch (error: any) {
+      return { success: false, error: error.message, data: 0 };
+    }
+  }
+
+  /**
    * Vacuum database to reclaim space
    */
   vacuum(): void {
-    this.db.exec('VACUUM');
+    try {
+      this.db.pragma('VACUUM');
+    } catch {
+      // VACUUM can fail if DB is in use
+    }
     console.log('[Database] Vacuum completed');
   }
 }

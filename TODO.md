@@ -1,92 +1,38 @@
 # Foundry - TODO
 
-## Current Priority: Fix Web Tools (Next Session)
+> **This file is a legacy pointer.** Active task tracking has moved to the `.foundry/` project structure.
 
-### WebFetch / GoogleSearch Not Working
+## Active Task Tracking
 
-**Problem**: Both tools fail in Gemini CLI. AI falls back to shell (curl).
+| File                        | Purpose                                        |
+| --------------------------- | ---------------------------------------------- |
+| **`.foundry/todo.md`**      | Current tasks with checkboxes — **START HERE** |
+| **`.foundry/decisions.md`** | 33 settled architecture decisions              |
+| **`.foundry/lessons.md`**   | Mistakes + patterns to prevent recurrence      |
+| **`BATTLEPLAN.md`**         | Condensed 12-phase execution plan              |
+| **`.foundry/VISION.md`**    | Full 2,227-line brainstorming document         |
 
-**Files to investigate:**
+## Current Target
 
-- `src/agent/gemini/cli/tools/web-fetch.ts` - Has retry logic, User-Agent rotation
-- `src/agent/gemini/cli/tools/web-search.ts` - Uses Gemini grounding API
+**Phase 0: Foundation** — DB migration (CHECK → Zod) + Security hardening (AES-256-GCM credentials, rate limiting, stronger pairing).
 
-**Options:**
-
-1. Check Gemini API grounding feature access (billing/plan)
-2. Use a web scraping API service
-3. Implement headless browser (Puppeteer)
-4. Accept shell/curl as fallback (works but verbose)
-
-**Test command:**
-
-```bash
-node -e "fetch('https://site.com').then(r=>console.log(r.status))"
-```
+See `.foundry/todo.md` for the full task breakdown.
 
 ---
 
-## Completed (2026-02-06)
+## Completed (Previous Sessions)
 
-### UX Polish - All P2 Items Done
-
-- [x] User/AI message visual distinction (`MessageAvatar.tsx`, `MessagetText.tsx`)
-- [x] File preview peeking on hover (`FilePreviewTooltip.tsx`)
-- [x] Micro-interaction animations (CSS classes applied)
-- [x] Confidence badges on web search (`ConfidenceBadge.tsx`)
-- [x] Clean Slate color scheme (neutral grays + orange accents)
-- [x] Sidebar width: 250px → 290px (`layout.tsx`)
-- [x] MessageList footer height fix (thinking indicator visibility)
-
-### Previous Sessions
-
-- [x] Remove Chinese comments (4,315 → ~5 intentional strings)
-- [x] Compact tool summaries (collapsed by default)
-- [x] Context-aware progress messages (Foundry phrases)
-- [x] Per-operation progress indicators
-- [x] Skeleton loading states
-- [x] Keyboard shortcuts (press `?`)
-- [x] Permission dialog improvements
-- [x] Graceful error recovery with retry
-
----
-
-## Remaining
-
-### P2 - Image Generation (First-Class Flow)
-
-- [ ] "New Image" sidebar option (alongside New Chat, New Project, New Schedule)
-- [ ] Image model selector (DALL-E 3, gpt-image-1, Imagen 4, OpenRouter)
-- [ ] Direct API calls — no CLI routing, no tool system
-- [ ] New conversation type (`image`) alongside gemini/codex/acp
-- [ ] Prompt input + reference image attachment + image display
-- [ ] Decision: revert or keep the in-chat Gemini fallback code?
-
-### P3 - Future
-
-- [ ] Artifact panel (like Claude.ai) - deferred
-- [ ] Session continuity (remember last conversation)
-- [ ] Local model auto-detection service
-- [ ] Resource monitoring for local inference
-
-### Technical Debt
-
-- [ ] Review `@office-ai/*` upstream dependencies
-- [ ] Update Homebrew formula for Foundry distribution
-- [ ] Fix node-pty native module build on Windows
-- [ ] Address npm security vulnerabilities
-
----
-
-## Key Files Changed This Session
-
-| File                                                   | Change                   |
-| ------------------------------------------------------ | ------------------------ |
-| `src/renderer/layout.tsx:53`                           | Sidebar width 250 → 290  |
-| `src/renderer/styles/themes/color-schemes/default.css` | Clean Slate theme        |
-| `src/renderer/components/MessageAvatar.tsx`            | NEW - User/AI avatars    |
-| `src/renderer/components/FilePreviewTooltip.tsx`       | NEW - Hover preview      |
-| `src/renderer/components/ConfidenceBadge.tsx`          | NEW - Source count badge |
-| `src/renderer/messages/MessagetText.tsx`               | Avatar + bubble layout   |
-| `src/renderer/messages/MessageList.tsx`                | Footer height fix        |
-| `src/agent/gemini/cli/tools/web-fetch.ts`              | Retry logic + headers    |
+- [x] Rebrand AionUI → Foundry (1,620 refs across 452 files)
+- [x] SDK streaming for Claude, Gemini, OpenAI
+- [x] Connection status banner, stop button, partial response preservation
+- [x] Error categorization with actionable guidance
+- [x] WebFetch — 3-tier: Playwright stealth → Jina Reader → direct fetch
+- [x] WebSearch — Jina + DuckDuckGo fallback
+- [x] Persistent thinking indicator (finishBridgeRef)
+- [x] Dynamic thinking indicator with Foundry phrases
+- [x] Model-aware suggested replies (suggestionService)
+- [x] Clean Slate theme (neutral grays + #ff6b35 orange)
+- [x] UX polish (avatars, file preview, confidence badges, shortcuts)
+- [x] Image generation backend complete (shelved from UI)
+- [x] Channels Phase 1 (Telegram + Lark)
+- [x] Image gen bug fixes (7 items, 2026-02-08)

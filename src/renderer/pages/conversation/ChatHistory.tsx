@@ -10,10 +10,12 @@ import FlexFullContainer from '@/renderer/components/FlexFullContainer';
 import { CronJobIndicator, useCronJobsMap } from '@/renderer/pages/cron';
 import { addEventListener, emitter } from '@/renderer/utils/emitter';
 import { getActivityTime, createTimelineGrouper } from '@/renderer/utils/timeline';
-import { Empty, Popconfirm, Input, Tooltip } from '@arco-design/web-react';
-import { DeleteOne, MessageOne, EditOne } from '@icon-park/react';
+import { Empty, Input, Tooltip } from '@arco-design/web-react';
+import { MessageOne } from '@icon-park/react';
+import ConversationContextMenu from '@/renderer/components/ConversationContextMenu';
+import ConversationSearch from '@/renderer/components/ConversationSearch';
 import classNames from 'classnames';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router-dom';
 
@@ -61,12 +63,23 @@ const ChatHistory: React.FC<{ onSessionClick?: () => void; collapsed?: boolean }
   const [chatHistory, setChatHistory] = useState<TChatConversation[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState<string>('');
+  const [searchQuery, setSearchQuery] = useState('');
   const { id } = useParams();
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { getJobStatus } = useCronJobsMap();
 
   useScrollIntoView(id);
+
+  const handleSearch = useCallback((query: string) => {
+    setSearchQuery(query);
+  }, []);
+
+  const filteredHistory = useMemo(() => {
+    if (!searchQuery.trim()) return chatHistory;
+    const q = searchQuery.toLowerCase();
+    return chatHistory.filter((c) => c.name.toLowerCase().includes(q));
+  }, [chatHistory, searchQuery]);
 
   const handleSelect = (conversation: TChatConversation) => {
     // ipcBridge.conversation.createWithConversation.invoke({ conversation }).then(() => {
@@ -189,7 +202,7 @@ const ChatHistory: React.FC<{ onSessionClick?: () => void; collapsed?: boolean }
           </FlexFullContainer>
           {!isEditing && (
             <div
-              className={classNames('absolute right-0px top-0px h-full w-70px items-center justify-end hidden group-hover:flex !collapsed-hidden pr-12px')}
+              className={classNames('absolute right-0px top-0px h-full w-40px items-center justify-end hidden group-hover:flex !collapsed-hidden pr-8px')}
               style={{
                 backgroundImage: isSelected ? `linear-gradient(to right, transparent, var(--aou-2) 50%)` : `linear-gradient(to right, transparent, var(--aou-1) 50%)`,
               }}
@@ -197,44 +210,9 @@ const ChatHistory: React.FC<{ onSessionClick?: () => void; collapsed?: boolean }
                 event.stopPropagation();
               }}
             >
-              {!isEditing && (
-                <span
-                  className='flex-center mr-8px'
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    handleEditStart(conversation);
-                  }}
-                >
-                  <EditOne theme='outline' size='20' className='flex' />
-                </span>
-              )}
-              {!isEditing && (
-                <Popconfirm
-                  title={t('conversation.history.deleteTitle')}
-                  content={t('conversation.history.deleteConfirm')}
-                  okText={t('conversation.history.confirmDelete')}
-                  cancelText={t('conversation.history.cancelDelete')}
-                  onOk={(event) => {
-                    event.stopPropagation();
-                    handleRemoveConversation(conversation.id);
-                  }}
-                  onCancel={(event) => {
-                    event.stopPropagation();
-                  }}
-                >
-                  <span
-                    className='flex-center'
-                    onClick={(event) => {
-                      event.stopPropagation();
-                    }}
-                  >
-                    <DeleteOne theme='outline' size='20' className='flex' />
-                  </span>
-                </Popconfirm>
-              )}
+              <ConversationContextMenu conversation={conversation} onRename={() => handleEditStart(conversation)} />
             </div>
           )}
-          {/* legacy hover overlay removed to avoid duplicate edit icon */}
         </div>
       </Tooltip>
     );
@@ -252,15 +230,22 @@ const ChatHistory: React.FC<{ onSessionClick?: () => void; collapsed?: boolean }
         {!chatHistory.length ? (
           <Empty className='chat-history__placeholder' description={t('conversation.history.noHistory')} />
         ) : (
-          chatHistory.map((item) => {
-            const timeline = formatTimeline(item);
-            return (
-              <React.Fragment key={item.id}>
-                {timeline && <div className='chat-history__section px-12px py-8px text-13px text-t-secondary font-bold'>{timeline}</div>}
-                {renderConversation(item)}
-              </React.Fragment>
-            );
-          })
+          <>
+            {!collapsed && <ConversationSearch onSearch={handleSearch} />}
+            {filteredHistory.length === 0 ? (
+              <div className='px-12px py-16px text-13px text-t-secondary text-center'>{t('conversation.history.noResults', { defaultValue: 'No conversations found' })}</div>
+            ) : (
+              filteredHistory.map((item) => {
+                const timeline = searchQuery ? null : formatTimeline(item);
+                return (
+                  <React.Fragment key={item.id}>
+                    {timeline && <div className='chat-history__section px-12px py-8px text-13px text-t-secondary font-bold'>{timeline}</div>}
+                    {renderConversation(item)}
+                  </React.Fragment>
+                );
+              })
+            )}
+          </>
         )}
       </div>
     </FlexFullContainer>

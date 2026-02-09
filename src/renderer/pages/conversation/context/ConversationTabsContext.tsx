@@ -18,7 +18,7 @@ export interface ConversationTab {
   /** Workspace path */
   workspace: string;
   /** Conversation type */
-  type: 'gemini' | 'acp' | 'codex' | 'image';
+  type: 'gemini' | 'acp' | 'codex' | 'image' | 'ember';
   /** Whether there are unsaved changes */
   isDirty?: boolean;
 }

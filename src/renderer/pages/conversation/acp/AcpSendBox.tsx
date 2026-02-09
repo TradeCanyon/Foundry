@@ -22,6 +22,9 @@ import HorizontalFileList from '@/renderer/components/HorizontalFileList';
 import { usePreviewContext } from '@/renderer/pages/conversation/preview';
 import { useLatestRef } from '@/renderer/hooks/useLatestRef';
 import { useAutoTitle } from '@/renderer/hooks/useAutoTitle';
+import ModelModeSelector, { type ModelMode } from '@/renderer/components/ModelModeSelector';
+import SendBoxSettingsPopover from '@/renderer/components/SendBoxSettingsPopover';
+import VoiceModeButton from '@/renderer/components/VoiceModeButton';
 
 const useAcpSendBoxDraft = getSendBoxDraftHook('acp', {
   _type: 'acp',
@@ -87,6 +90,15 @@ const useAcpMessage = (conversation_id: string) => {
       }
     };
   }, []);
+
+  // Extract session memories when conversation finishes
+  const prevRunningRef = useRef(false);
+  useEffect(() => {
+    if (prevRunningRef.current && !running) {
+      void ipcBridge.memory.extractSession.invoke({ conversationId: conversation_id }).catch(() => {});
+    }
+    prevRunningRef.current = running;
+  }, [running, conversation_id]);
 
   const handleResponseMessage = useCallback(
     (message: IResponseMessage) => {
@@ -213,11 +225,18 @@ const useSendBoxDraft = (conversation_id: string) => {
   };
 };
 
+const defaultSubagents = [
+  { key: 'cowork', label: 'CoWork', enabled: true },
+  { key: 'researcher', label: 'Researcher', enabled: false },
+  { key: 'report-writer', label: 'Report Writer', enabled: false },
+];
+
 const AcpSendBox: React.FC<{
   conversation_id: string;
   backend: AcpBackend;
 }> = ({ conversation_id, backend }) => {
   const [workspacePath, setWorkspacePath] = useState('');
+  const [modelMode, setModelMode] = useState<ModelMode>('auto');
   const { thought, running, acpStatus, aiProcessing, setAiProcessing, resetState } = useAcpMessage(conversation_id);
   const { t } = useTranslation();
   const { checkAndUpdateTitle } = useAutoTitle();
@@ -452,18 +471,27 @@ const AcpSendBox: React.FC<{
         onFilesAdded={handleFilesAdded}
         supportedExts={allSupportedExts}
         tools={
-          <Button
-            type='secondary'
-            shape='circle'
-            icon={<Plus theme='outline' size='14' strokeWidth={2} fill={iconColors.primary} />}
-            onClick={() => {
-              void ipcBridge.dialog.showOpen.invoke({ properties: ['openFile', 'multiSelections'] }).then((files) => {
-                if (files && files.length > 0) {
-                  setUploadFile([...uploadFile, ...files]);
-                }
-              });
-            }}
-          />
+          <div className='flex items-center gap-4px'>
+            <Button
+              type='secondary'
+              shape='circle'
+              icon={<Plus theme='outline' size='14' strokeWidth={2} fill={iconColors.primary} />}
+              onClick={() => {
+                void ipcBridge.dialog.showOpen.invoke({ properties: ['openFile', 'multiSelections'] }).then((files) => {
+                  if (files && files.length > 0) {
+                    setUploadFile([...uploadFile, ...files]);
+                  }
+                });
+              }}
+            />
+            <SendBoxSettingsPopover subagents={defaultSubagents} mcps={[]} />
+            <VoiceModeButton />
+          </div>
+        }
+        sendButtonPrefix={
+          <div className='flex items-center gap-6px'>
+            <ModelModeSelector mode={modelMode} onModeChange={setModelMode} />
+          </div>
         }
         prefix={
           <>

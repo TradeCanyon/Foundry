@@ -9,7 +9,7 @@ import FoundryScrollArea from '@/renderer/components/base/FoundryScrollArea';
 import { iconColors } from '@/renderer/theme/colors';
 import { isElectronDesktop } from '@/renderer/utils/platform';
 import { Tabs } from '@arco-design/web-react';
-import { Computer, Earth, Gemini, Info, LinkCloud, Toolkit } from '@icon-park/react';
+import { Computer, Earth, Fire, Gemini, Info, LinkCloud, Toolkit, Shield, Brain, Lightning, PlugOne } from '@icon-park/react';
 import classNames from 'classnames';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -20,6 +20,11 @@ import ModelModalContent from './contents/ModelModalContent';
 import SystemModalContent from './contents/SystemModalContent';
 import ToolsModalContent from './contents/ToolsModalContent';
 // import ImageModalContent from './contents/ImageModalContent'; // Shelved
+import ConstitutionModalContent from './contents/ConstitutionModalContent';
+import MemoryModalContent from './contents/MemoryModalContent';
+import SkillStoreModalContent from './contents/SkillStoreModalContent';
+import EmberModalContent from './contents/EmberModalContent';
+import McpStoreModalContent from './contents/McpStoreModalContent';
 import WebuiModalContent from './contents/WebuiModalContent';
 import { SettingsViewModeProvider } from './settingsViewContext';
 
@@ -52,7 +57,7 @@ const RESIZE_DEBOUNCE_DELAY = 150;
 /**
  * Settings tab type
  */
-export type SettingTab = 'gemini' | 'model' | 'agent' | 'tools' | 'image' | 'webui' | 'system' | 'about';
+export type SettingTab = 'gemini' | 'model' | 'agent' | 'tools' | 'image' | 'constitution' | 'memory' | 'ember' | 'skills' | 'mcp' | 'webui' | 'system' | 'about';
 
 /**
  * Settings modal component props
@@ -173,6 +178,31 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ visible, onCancel, defaul
         label: t('settings.tools'),
         icon: <Toolkit theme='outline' size='20' fill={iconColors.secondary} />,
       },
+      {
+        key: 'constitution',
+        label: t('settings.constitution', 'Constitution'),
+        icon: <Shield theme='outline' size='20' fill={iconColors.secondary} />,
+      },
+      {
+        key: 'memory',
+        label: t('settings.memory', 'Memory'),
+        icon: <Brain theme='outline' size='20' fill={iconColors.secondary} />,
+      },
+      {
+        key: 'ember',
+        label: t('settings.ember', 'Ember'),
+        icon: <Fire theme='outline' size='20' fill={iconColors.secondary} />,
+      },
+      {
+        key: 'skills',
+        label: t('settings.skills', 'Skills'),
+        icon: <Lightning theme='outline' size='20' fill={iconColors.secondary} />,
+      },
+      {
+        key: 'mcp',
+        label: t('settings.mcp', 'MCP Store'),
+        icon: <PlugOne theme='outline' size='20' fill={iconColors.secondary} />,
+      },
     ];
 
     // Only add WebUI option on desktop (includes Assistant config)
@@ -200,8 +230,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ visible, onCancel, defaul
     return items;
   }, [t, isDesktop]);
 
-  console.log('%c [  ]-211', 'font-size:13px; background:pink; color:#bf2c9f;', isDesktop, menuItems);
-
   // Render current selected settings content
   const renderContent = () => {
     switch (activeTab) {
@@ -214,6 +242,16 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ visible, onCancel, defaul
       case 'tools':
         return <ToolsModalContent />;
       // case 'image': return <ImageModalContent />; // Shelved
+      case 'constitution':
+        return <ConstitutionModalContent />;
+      case 'memory':
+        return <MemoryModalContent />;
+      case 'ember':
+        return <EmberModalContent />;
+      case 'skills':
+        return <SkillStoreModalContent />;
+      case 'mcp':
+        return <McpStoreModalContent />;
       case 'webui':
         return <WebuiModalContent />;
       case 'system':

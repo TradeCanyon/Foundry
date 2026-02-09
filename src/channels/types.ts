@@ -9,7 +9,7 @@
 /**
  * Supported platform types for plugins
  */
-export type PluginType = 'telegram' | 'slack' | 'discord' | 'lark';
+export type PluginType = 'telegram' | 'slack' | 'discord' | 'lark' | 'whatsapp' | 'signal';
 
 /**
  * Plugin connection status

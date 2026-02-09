@@ -6,8 +6,11 @@ import { uuid } from '@/common/utils';
 import ContextUsageIndicator from '@/renderer/components/ContextUsageIndicator';
 import FilePreview from '@/renderer/components/FilePreview';
 import HorizontalFileList from '@/renderer/components/HorizontalFileList';
+import ModelModeSelector, { type ModelMode } from '@/renderer/components/ModelModeSelector';
 import SendBox from '@/renderer/components/sendbox';
+import SendBoxSettingsPopover from '@/renderer/components/SendBoxSettingsPopover';
 import ThoughtDisplay, { type ThoughtData } from '@/renderer/components/ThoughtDisplay';
+import VoiceModeButton from '@/renderer/components/VoiceModeButton';
 import { useProcessingContextSafe } from '@/renderer/context/ConversationContext';
 import { useAutoTitle } from '@/renderer/hooks/useAutoTitle';
 import { useLatestRef } from '@/renderer/hooks/useLatestRef';
@@ -438,16 +441,32 @@ const GeminiSendBox: React.FC<{
 
   const { thought, running, tokenUsage, setActiveMsgId, setWaitingResponse, resetState } = useGeminiMessage(conversation_id, handleGeminiError);
 
+  // Model mode selector state (Air/Custom/Pro)
+  const [modelMode, setModelMode] = useState<ModelMode>('auto');
+
+  // Default subagents and MCPs for the settings popover
+  const defaultSubagents = useMemo(
+    () => [
+      { key: 'cowork', label: 'CoWork', enabled: true },
+      { key: 'researcher', label: 'Researcher', enabled: true },
+      { key: 'report-writer', label: 'Report Writer', enabled: false },
+    ],
+    []
+  );
+  const defaultMcps = useMemo(() => [] as { key: string; label: string; icon?: string; enabled: boolean }[], []);
+
   // Suggested reply state
   const [suggestedReply, setSuggestedReply] = useState('');
   const prevRunningRef = useRef(false);
 
-  // When running transitions true -> false, fetch a suggestion
+  // When running transitions true -> false, fetch a suggestion + extract memories
   useEffect(() => {
     if (prevRunningRef.current && !running) {
       void ipcBridge.geminiConversation.suggestReply.invoke({ conversation_id }).then((suggestion) => {
         if (suggestion) setSuggestedReply(suggestion);
       });
+      // Extract session memories in background (non-blocking)
+      void ipcBridge.memory.extractSession.invoke({ conversationId: conversation_id }).catch(() => {});
     }
     prevRunningRef.current = running;
   }, [running, conversation_id]);
@@ -512,6 +531,15 @@ const GeminiSendBox: React.FC<{
   );
 
   const { atPath, uploadFile, setAtPath, setUploadFile, content, setContent: setContentRaw } = useSendBoxDraft(conversation_id);
+
+  // Listen for sendbox.fill events (from action pill templates)
+  useAddEventListener(
+    'sendbox.fill',
+    (text: string) => {
+      setContentRaw(text);
+    },
+    [setContentRaw]
+  );
 
   // Wrap setContent to clear suggestion when user types
   const setContent = useCallback(
@@ -695,20 +723,29 @@ const GeminiSendBox: React.FC<{
         suggestedReply={suggestedReply}
         onSuggestedReplyUsed={clearSuggestion}
         tools={
-          <Button
-            type='secondary'
-            shape='circle'
-            icon={<Plus theme='outline' size='14' strokeWidth={2} fill={iconColors.primary} />}
-            onClick={() => {
-              void ipcBridge.dialog.showOpen.invoke({ properties: ['openFile', 'multiSelections'] }).then((files) => {
-                if (files && files.length > 0) {
-                  setUploadFile([...uploadFile, ...files]);
-                }
-              });
-            }}
-          />
+          <div className='flex items-center gap-4px'>
+            <Button
+              type='secondary'
+              shape='circle'
+              icon={<Plus theme='outline' size='14' strokeWidth={2} fill={iconColors.primary} />}
+              onClick={() => {
+                void ipcBridge.dialog.showOpen.invoke({ properties: ['openFile', 'multiSelections'] }).then((files) => {
+                  if (files && files.length > 0) {
+                    setUploadFile([...uploadFile, ...files]);
+                  }
+                });
+              }}
+            />
+            <SendBoxSettingsPopover subagents={defaultSubagents} mcps={defaultMcps} />
+            <VoiceModeButton />
+          </div>
         }
-        sendButtonPrefix={<ContextUsageIndicator tokenUsage={tokenUsage} contextLimit={getModelContextLimit(currentModel?.useModel)} size={24} />}
+        sendButtonPrefix={
+          <div className='flex items-center gap-6px'>
+            <ModelModeSelector mode={modelMode} onModeChange={setModelMode} />
+            <ContextUsageIndicator tokenUsage={tokenUsage} contextLimit={getModelContextLimit(currentModel?.useModel)} size={24} />
+          </div>
+        }
         prefix={
           <>
             {/* Files on top */}

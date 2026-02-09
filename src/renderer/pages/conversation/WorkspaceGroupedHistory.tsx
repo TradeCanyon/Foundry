@@ -12,10 +12,12 @@ import { addEventListener, emitter } from '@/renderer/utils/emitter';
 import { getActivityTime, getTimelineLabel } from '@/renderer/utils/timeline';
 import { getWorkspaceDisplayName } from '@/renderer/utils/workspace';
 import { getWorkspaceUpdateTime } from '@/renderer/utils/workspaceHistory';
-import { Empty, Popconfirm, Input, Tooltip } from '@arco-design/web-react';
-import { DeleteOne, MessageOne, EditOne } from '@icon-park/react';
+import { Empty, Input, Tooltip } from '@arco-design/web-react';
+import { MessageOne } from '@icon-park/react';
+import ConversationContextMenu from '@/renderer/components/ConversationContextMenu';
+import ConversationSearch from '@/renderer/components/ConversationSearch';
 import classNames from 'classnames';
-import React, { useEffect, useState, useMemo, useCallback } from 'react';
+import React, { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useConversationTabs } from './context/ConversationTabsContext';
@@ -149,6 +151,7 @@ const EXPANSION_STORAGE_KEY = 'foundry_workspace_expansion';
 
 const WorkspaceGroupedHistory: React.FC<{ onSessionClick?: () => void; collapsed?: boolean }> = ({ onSessionClick, collapsed = false }) => {
   const [conversations, setConversations] = useState<TChatConversation[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
   const [expandedWorkspaces, setExpandedWorkspaces] = useState<string[]>(() => {
     // Restore expansion state from localStorage
     try {
@@ -213,14 +216,32 @@ const WorkspaceGroupedHistory: React.FC<{ onSessionClick?: () => void; collapsed
     }
   }, [expandedWorkspaces]);
 
+  const handleSearch = useCallback((query: string) => {
+    setSearchQuery(query);
+  }, []);
+
+  // Filter conversations by search query
+  const filteredConversations = useMemo(() => {
+    if (!searchQuery.trim()) return conversations;
+    const q = searchQuery.toLowerCase();
+    return conversations.filter((c) => c.name.toLowerCase().includes(q));
+  }, [conversations, searchQuery]);
+
   // Group by timeline and workspace
   const timelineSections = useMemo(() => {
-    return groupConversationsByTimelineAndWorkspace(conversations, t);
-  }, [conversations, t]);
+    return groupConversationsByTimelineAndWorkspace(filteredConversations, t);
+  }, [filteredConversations, t]);
 
-  // Expand all workspaces by default (only executed once when no expansion state is recorded)
+  // Expand all workspaces on first load (only if localStorage had no saved state)
+  const hasInitializedExpansion = useRef(false);
   useEffect(() => {
-    if (expandedWorkspaces.length > 0) return;
+    if (hasInitializedExpansion.current) return;
+    // Only auto-expand if no saved state exists (empty array from init, not from user collapsing all)
+    const hasSavedState = localStorage.getItem(EXPANSION_STORAGE_KEY) !== null;
+    if (hasSavedState) {
+      hasInitializedExpansion.current = true;
+      return;
+    }
     const allWorkspaces: string[] = [];
     timelineSections.forEach((section) => {
       section.items.forEach((item) => {
@@ -231,8 +252,9 @@ const WorkspaceGroupedHistory: React.FC<{ onSessionClick?: () => void; collapsed
     });
     if (allWorkspaces.length > 0) {
       setExpandedWorkspaces(allWorkspaces);
+      hasInitializedExpansion.current = true;
     }
-  }, [timelineSections, expandedWorkspaces.length]);
+  }, [timelineSections]);
 
   const handleConversationClick = useCallback(
     (conv: TChatConversation) => {
@@ -365,7 +387,7 @@ const WorkspaceGroupedHistory: React.FC<{ onSessionClick?: () => void; collapsed
             <FlexFullContainer className='h-24px min-w-0 flex-1 collapsed-hidden ml-10px'>{isEditing ? <Input className='chat-history__item-editor text-14px lh-24px h-24px w-full' value={editingName} onChange={setEditingName} onKeyDown={handleEditKeyDown} onBlur={handleEditSave} autoFocus size='small' /> : <div className='chat-history__item-name overflow-hidden text-ellipsis inline-block flex-1 text-14px lh-24px whitespace-nowrap min-w-0'>{conversation.name}</div>}</FlexFullContainer>
             {!isEditing && (
               <div
-                className={classNames('absolute right-0px top-0px h-full w-70px items-center justify-end hidden group-hover:flex !collapsed-hidden pr-12px')}
+                className={classNames('absolute right-0px top-0px h-full w-40px items-center justify-end hidden group-hover:flex !collapsed-hidden pr-8px')}
                 style={{
                   backgroundImage: isSelected ? `linear-gradient(to right, transparent, var(--aou-2) 50%)` : `linear-gradient(to right, transparent, var(--aou-1) 50%)`,
                 }}
@@ -373,37 +395,7 @@ const WorkspaceGroupedHistory: React.FC<{ onSessionClick?: () => void; collapsed
                   event.stopPropagation();
                 }}
               >
-                <span
-                  className='flex-center mr-8px'
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    handleEditStart(conversation);
-                  }}
-                >
-                  <EditOne theme='outline' size='20' className='flex' />
-                </span>
-                <Popconfirm
-                  title={t('conversation.history.deleteTitle')}
-                  content={t('conversation.history.deleteConfirm')}
-                  okText={t('conversation.history.confirmDelete')}
-                  cancelText={t('conversation.history.cancelDelete')}
-                  onOk={(event) => {
-                    event.stopPropagation();
-                    handleRemoveConversation(conversation.id);
-                  }}
-                  onCancel={(event) => {
-                    event.stopPropagation();
-                  }}
-                >
-                  <span
-                    className='flex-center'
-                    onClick={(event) => {
-                      event.stopPropagation();
-                    }}
-                  >
-                    <DeleteOne theme='outline' size='20' className='flex' />
-                  </span>
-                </Popconfirm>
+                <ConversationContextMenu conversation={conversation} onRename={() => handleEditStart(conversation)} />
               </div>
             )}
           </div>
@@ -427,6 +419,8 @@ const WorkspaceGroupedHistory: React.FC<{ onSessionClick?: () => void; collapsed
   return (
     <FlexFullContainer>
       <div className='size-full overflow-y-auto overflow-x-hidden'>
+        {!collapsed && <ConversationSearch onSearch={handleSearch} />}
+        {searchQuery && filteredConversations.length === 0 ? <div className='px-12px py-16px text-13px text-t-secondary text-center'>{t('conversation.history.noResults', { defaultValue: 'No conversations found' })}</div> : null}
         {timelineSections.map((section) => (
           <div key={section.timeline} className='mb-8px min-w-0'>
             {/* Timeline title */}

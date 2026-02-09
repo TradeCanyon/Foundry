@@ -39,17 +39,19 @@ export function initSchema(db: Database.Database): void {
   `);
 
   // Conversations table (stores TChatConversation)
+  // No CHECK constraints — validation handled by Zod at TypeScript layer (Decision D-004)
   db.exec(`
     CREATE TABLE IF NOT EXISTS conversations (
       id TEXT PRIMARY KEY,
       user_id TEXT NOT NULL,
       name TEXT NOT NULL,
-      type TEXT NOT NULL CHECK(type IN ('gemini', 'acp', 'codex')),
+      type TEXT NOT NULL,
       extra TEXT NOT NULL,
       model TEXT,
-      status TEXT CHECK(status IN ('pending', 'running', 'finished')),
+      status TEXT,
       created_at INTEGER NOT NULL,
       updated_at INTEGER NOT NULL,
+      source TEXT,
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     );
 
@@ -57,6 +59,8 @@ export function initSchema(db: Database.Database): void {
     CREATE INDEX IF NOT EXISTS idx_conversations_updated_at ON conversations(updated_at);
     CREATE INDEX IF NOT EXISTS idx_conversations_type ON conversations(type);
     CREATE INDEX IF NOT EXISTS idx_conversations_user_updated ON conversations(user_id, updated_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_conversations_source ON conversations(source);
+    CREATE INDEX IF NOT EXISTS idx_conversations_source_updated ON conversations(source, updated_at DESC);
   `);
 
   // Messages table (stores TMessage)
@@ -67,8 +71,8 @@ export function initSchema(db: Database.Database): void {
       msg_id TEXT,
       type TEXT NOT NULL,
       content TEXT NOT NULL,
-      position TEXT CHECK(position IN ('left', 'right', 'center', 'pop')),
-      status TEXT CHECK(status IN ('finish', 'pending', 'error', 'work')),
+      position TEXT,
+      status TEXT,
       created_at INTEGER NOT NULL,
       FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE
     );
@@ -108,4 +112,4 @@ export function setDatabaseVersion(db: Database.Database, version: number): void
  * Current database schema version
  * Update this when adding new migrations in migrations.ts
  */
-export const CURRENT_DB_VERSION = 12;
+export const CURRENT_DB_VERSION = 14;

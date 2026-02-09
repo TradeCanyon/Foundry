@@ -20,7 +20,7 @@ const TEMP_WORKSPACE_REGEX = /-temp-\d+$/i;
  */
 export const isTemporaryWorkspace = (workspacePath: string): boolean => {
   // Extract the last path segment (directory name)
-  const parts = workspacePath.split('/').filter(Boolean);
+  const parts = workspacePath.split(/[/\\]/).filter(Boolean);
   const lastSegment = parts[parts.length - 1] || '';
 
   // Check if it matches the temporary workspace pattern
@@ -38,7 +38,7 @@ export const getWorkspaceDisplayName = (workspacePath: string, t?: (key: string)
   // Check for temporary workspace
   if (isTemporaryWorkspace(workspacePath)) {
     // Try to extract timestamp from temp workspace path using the generic pattern
-    const parts = workspacePath.split('/').filter(Boolean);
+    const parts = workspacePath.split(/[/\\]/).filter(Boolean);
     const lastSegment = parts[parts.length - 1] || '';
     const match = lastSegment.match(/-temp-(\d+)$/i);
 
@@ -53,7 +53,7 @@ export const getWorkspaceDisplayName = (workspacePath: string, t?: (key: string)
   }
 
   // For regular workspace, show the last directory name
-  const parts = workspacePath.split('/').filter(Boolean);
+  const parts = workspacePath.split(/[/\\]/).filter(Boolean);
   return parts[parts.length - 1] || workspacePath;
 };
 

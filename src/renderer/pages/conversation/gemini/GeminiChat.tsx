@@ -6,11 +6,12 @@
 
 import type { ConversationContextValue } from '@/renderer/context/ConversationContext';
 import { ConversationProvider } from '@/renderer/context/ConversationContext';
+import SuggestedActionPills, { ActionTemplates, useActionPills } from '@renderer/components/SuggestedActionPills';
 import FlexFullContainer from '@renderer/components/FlexFullContainer';
 import MessageList from '@renderer/messages/MessageList';
-import { MessageListProvider, useMessageLstCache } from '@renderer/messages/hooks';
+import { MessageListProvider, useMessageLstCache, useMessageList } from '@renderer/messages/hooks';
 import HOC from '@renderer/utils/HOC';
-import React, { useEffect, useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo } from 'react';
 import LocalImageView from '../../../components/LocalImageView';
 import ConversationChatConfirm from '../components/ConversationChatConfirm';
 import GeminiSendBox from './GeminiSendBox';
@@ -24,12 +25,34 @@ const GeminiChat: React.FC<{
 }> = ({ conversation_id, workspace, modelSelection }) => {
   useMessageLstCache(conversation_id);
   const updateLocalImage = LocalImageView.useUpdateLocalImage();
+  const messages = useMessageList();
+  const { activeCategory, handleCategorySelect, pillsVisible, setHasMessages } = useActionPills();
+
   useEffect(() => {
     updateLocalImage({ root: workspace });
   }, [workspace]);
+
+  // Track whether conversation has messages
+  useEffect(() => {
+    setHasMessages(messages.length > 0);
+  }, [messages.length, setHasMessages]);
+
   const conversationValue = useMemo<ConversationContextValue>(() => {
     return { conversationId: conversation_id, workspace, type: 'gemini' };
   }, [conversation_id, workspace]);
+
+  // When user selects a template, emit it to the send box
+  const handleTemplateSelect = useCallback(
+    (template: string) => {
+      // Emit the template text to the GeminiSendBox input
+      // The sendbox listens for this event and fills the input
+      void import('@/renderer/utils/emitter').then(({ emitter }) => {
+        emitter.emit('sendbox.fill', template);
+      });
+      handleCategorySelect(null);
+    },
+    [handleCategorySelect]
+  );
 
   return (
     <ConversationProvider value={conversationValue}>
@@ -40,6 +63,11 @@ const GeminiChat: React.FC<{
         <ConversationChatConfirm conversation_id={conversation_id}>
           <GeminiSendBox conversation_id={conversation_id} modelSelection={modelSelection}></GeminiSendBox>
         </ConversationChatConfirm>
+        {/* Suggested action pills — only shown on empty conversations */}
+        <div className='max-w-800px w-full mx-auto'>
+          <SuggestedActionPills activeCategory={activeCategory} onCategorySelect={handleCategorySelect} visible={pillsVisible} />
+          {activeCategory && <ActionTemplates category={activeCategory} onSelect={handleTemplateSelect} />}
+        </div>
       </div>
     </ConversationProvider>
   );

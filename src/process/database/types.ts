@@ -7,6 +7,7 @@
 // Reuse existing business type definitions
 import type { TChatConversation, IConfigStorageRefer } from '@/common/storage';
 import type { TMessage } from '@/common/chatLib';
+import { z } from 'zod';
 
 /**
  * ======================
@@ -59,28 +60,54 @@ export interface IPaginatedResult<T> {
 
 /**
  * ======================
+ * Zod validation schemas (Decision D-004)
+ * Single source of truth for valid DB values.
+ * Add new types here — no DB migration needed.
+ * ======================
+ */
+
+export const ConversationTypeSchema = z.enum(['gemini', 'acp', 'codex', 'image']);
+export const ConversationStatusSchema = z.enum(['pending', 'running', 'finished']);
+export const ConversationSourceSchema = z.enum(['foundry', 'telegram']);
+export const MessagePositionSchema = z.enum(['left', 'right', 'center', 'pop']);
+export const MessageStatusSchema = z.enum(['finish', 'pending', 'error', 'work']);
+
+// Memory system schemas (Phase 5)
+export const MemoryTypeSchema = z.enum(['session_summary', 'decision', 'lesson', 'preference', 'fact', 'correction']);
+export const MemorySourceSchema = z.enum(['auto', 'user', 'agent']);
+export type MemoryType = z.infer<typeof MemoryTypeSchema>;
+export type MemorySource = z.infer<typeof MemorySourceSchema>;
+
+export type ConversationType = z.infer<typeof ConversationTypeSchema>;
+export type ConversationStatus = z.infer<typeof ConversationStatusSchema>;
+export type ConversationSource = z.infer<typeof ConversationSourceSchema>;
+
+/**
+ * ======================
  * Database storage format (serialized format)
  * ======================
  */
 
 /**
  * Conversation stored in database (serialized format)
+ * Fields are typed as string — runtime validation via Zod schemas above.
  */
 export interface IConversationRow {
   id: string;
   user_id: string;
   name: string;
-  type: 'gemini' | 'acp' | 'codex' | 'image';
+  type: string;
   extra: string; // JSON string of extra data
-  model?: string; // JSON string of TProviderWithModel (gemini type has this)
-  status?: 'pending' | 'running' | 'finished';
-  source?: 'foundry' | 'telegram'; // Conversation source
+  model?: string; // JSON string of TProviderWithModel (gemini/image types have this)
+  status?: string;
+  source?: string;
   created_at: number;
   updated_at: number;
 }
 
 /**
  * Message stored in database (serialized format)
+ * Fields are typed as string — runtime validation via Zod schemas above.
  */
 export interface IMessageRow {
   id: string;
@@ -88,8 +115,8 @@ export interface IMessageRow {
   msg_id?: string; // Message source ID
   type: string; // TMessage['type']
   content: string; // JSON string of message content
-  position?: 'left' | 'right' | 'center' | 'pop';
-  status?: 'finish' | 'pending' | 'error' | 'work';
+  position?: string;
+  status?: string;
   created_at: number;
 }
 
@@ -140,31 +167,38 @@ export function rowToConversation(row: IConversationRow): TChatConversation {
     source: row.source,
   };
 
-  // Gemini type has model field
-  if (row.type === 'gemini' && row.model) {
-    return {
-      ...base,
-      type: 'gemini' as const,
-      extra: JSON.parse(row.extra),
-      model: JSON.parse(row.model),
-    } as TChatConversation;
-  }
+  switch (row.type) {
+    case 'gemini':
+      return {
+        ...base,
+        type: 'gemini' as const,
+        extra: JSON.parse(row.extra),
+        model: row.model ? JSON.parse(row.model) : undefined,
+      } as TChatConversation;
 
-  // ACP type
-  if (row.type === 'acp') {
-    return {
-      ...base,
-      type: 'acp' as const,
-      extra: JSON.parse(row.extra),
-    } as TChatConversation;
-  }
+    case 'image':
+      return {
+        ...base,
+        type: 'image' as const,
+        extra: JSON.parse(row.extra),
+        model: row.model ? JSON.parse(row.model) : undefined,
+      } as TChatConversation;
 
-  // Codex type
-  return {
-    ...base,
-    type: 'codex' as const,
-    extra: JSON.parse(row.extra),
-  } as TChatConversation;
+    case 'acp':
+      return {
+        ...base,
+        type: 'acp' as const,
+        extra: JSON.parse(row.extra),
+      } as TChatConversation;
+
+    case 'codex':
+    default:
+      return {
+        ...base,
+        type: (row.type || 'codex') as 'codex',
+        extra: JSON.parse(row.extra),
+      } as TChatConversation;
+  }
 }
 
 /**
@@ -204,6 +238,100 @@ export function rowToMessage(row: IMessageRow): TMessage {
  * Export type aliases for convenience
  * ======================
  */
+
+/**
+ * ======================
+ * Memory system types (Phase 5)
+ * ======================
+ */
+
+/** Memory chunk stored in database */
+export interface IMemoryChunkRow {
+  id: string;
+  workspace: string | null; // null = global, path = project-scoped
+  conversation_id: string | null;
+  type: string; // MemoryType
+  source: string; // MemorySource
+  content: string; // The actual memory text
+  tags: string | null; // JSON array of tags
+  importance: number; // 0-10 score
+  access_count: number;
+  last_accessed: number | null;
+  created_at: number;
+  updated_at: number;
+}
+
+/** Memory chunk business object */
+export interface IMemoryChunk {
+  id: string;
+  workspace: string | null;
+  conversationId: string | null;
+  type: MemoryType;
+  source: MemorySource;
+  content: string;
+  tags: string[];
+  importance: number;
+  accessCount: number;
+  lastAccessed: number | null;
+  createdAt: number;
+  updatedAt: number;
+}
+
+/** User profile entry stored in database */
+export interface IUserProfileRow {
+  id: string;
+  category: string;
+  key: string;
+  value: string;
+  confidence: number; // 0.0-1.0
+  evidence_count: number;
+  created_at: number;
+  updated_at: number;
+}
+
+/** User profile entry business object */
+export interface IUserProfileEntry {
+  id: string;
+  category: string;
+  key: string;
+  value: string;
+  confidence: number;
+  evidenceCount: number;
+  createdAt: number;
+  updatedAt: number;
+}
+
+/** Convert memory chunk row to business object */
+export function rowToMemoryChunk(row: IMemoryChunkRow): IMemoryChunk {
+  return {
+    id: row.id,
+    workspace: row.workspace,
+    conversationId: row.conversation_id,
+    type: row.type as MemoryType,
+    source: row.source as MemorySource,
+    content: row.content,
+    tags: row.tags ? JSON.parse(row.tags) : [],
+    importance: row.importance,
+    accessCount: row.access_count,
+    lastAccessed: row.last_accessed,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+/** Convert user profile row to business object */
+export function rowToUserProfile(row: IUserProfileRow): IUserProfileEntry {
+  return {
+    id: row.id,
+    category: row.category,
+    key: row.key,
+    value: row.value,
+    confidence: row.confidence,
+    evidenceCount: row.evidence_count,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
 
 export type {
   // Reused business types

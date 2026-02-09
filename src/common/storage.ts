@@ -194,6 +194,19 @@ export type TChatConversation =
           createdAt: number;
         }>;
       }
+    >
+  | Omit<
+      IChatConversation<
+        'ember',
+        {
+          /** Ember personality ID for this conversation */
+          personality?: string;
+          /** Workspace for consistency with other conversation types */
+          workspace?: string;
+          customWorkspace?: boolean;
+        }
+      >,
+      'model'
     >;
 
 export type IChatConversationRefer = {

@@ -24,6 +24,7 @@ import AcpChat from './acp/AcpChat';
 import ChatLayout from './ChatLayout';
 import ChatSider from './ChatSider';
 import CodexChat from './codex/CodexChat';
+import EmberChat from './ember/EmberChat';
 import GeminiChat from './gemini/GeminiChat';
 // import ImageChat from './image/ImageChat'; // Shelved
 import GeminiModelSelector from './gemini/GeminiModelSelector';
@@ -111,6 +112,7 @@ const GeminiConversationPanel: React.FC<{ conversation: GeminiConversation; slid
     siderTitle: sliderTitle,
     sider: <ChatSider conversation={conversation} />,
     headerLeft: <GeminiModelSelector selection={modelSelection} />,
+    workspace: conversation.extra.workspace,
     headerExtra: (
       <>
         <ConnectionStatusBanner state={connectionState.state} reconnectAttempt={connectionState.reconnectAttempt} maxReconnectAttempts={connectionState.maxReconnectAttempts} errorMessage={connectionState.errorMessage} onRetry={connectionState.retry} />
@@ -149,6 +151,8 @@ const ChatConversation: React.FC<{
         return <AcpChat key={conversation.id} conversation_id={conversation.id} workspace={conversation.extra?.workspace} backend={conversation.extra?.backend || 'claude'}></AcpChat>;
       case 'codex':
         return <CodexChat key={conversation.id} conversation_id={conversation.id} workspace={conversation.extra?.workspace} />;
+      case 'ember':
+        return <EmberChat key={conversation.id} conversation_id={conversation.id} />;
       // case 'image': shelved
       default:
         return null;
@@ -191,7 +195,7 @@ const ChatConversation: React.FC<{
   ) : undefined;
 
   return (
-    <ChatLayout title={conversation?.name} {...chatLayoutProps} headerExtra={headerExtra} siderTitle={sliderTitle} sider={<ChatSider conversation={conversation} />} workspaceEnabled={workspaceEnabled}>
+    <ChatLayout title={conversation?.name} {...chatLayoutProps} headerExtra={headerExtra} siderTitle={sliderTitle} sider={<ChatSider conversation={conversation} />} workspaceEnabled={workspaceEnabled} workspace={conversation?.extra?.workspace}>
       {conversationNode}
     </ChatLayout>
   );

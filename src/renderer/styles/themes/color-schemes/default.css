@@ -35,6 +35,7 @@
   /* Text Colors - Crisp contrast */
   --text-primary: #1a1a1a;
   --text-secondary: #666666;
+  --text-tertiary: #999999;
   --text-disabled: #b0b0b0;
 
   /* Semantic Colors - Orange primary, standard semantics */
@@ -112,6 +113,7 @@
   /* Text Colors */
   --text-primary: #f0f0f0;
   --text-secondary: #999999;
+  --text-tertiary: #777777;
   --text-disabled: #555555;
 
   /* Semantic Colors */

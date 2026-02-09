@@ -31,6 +31,10 @@ type Draft =
   | {
       _type: 'image';
       content: string;
+    }
+  | {
+      _type: 'ember';
+      content: string;
     };
 
 /**
@@ -45,6 +49,7 @@ const store: SendBoxDraftStore = {
   acp: new Map(),
   codex: new Map(),
   image: new Map(),
+  ember: new Map(),
 };
 
 const setDraft = <K extends TChatConversation['type']>(type: K, conversation_id: string, draft: Extract<Draft, { _type: K }> | undefined) => {

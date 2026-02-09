@@ -9,13 +9,16 @@ import { useLayoutContext } from '@/renderer/context/LayoutContext';
 import { PreviewToolbarExtrasProvider, type PreviewToolbarExtras } from '../../context/PreviewToolbarExtrasContext';
 import { usePreviewContext } from '../../context/PreviewContext';
 import { useResizableSplit } from '@/renderer/hooks/useResizableSplit';
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import { marked } from 'marked';
+import TurndownService from 'turndown';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import CodePreview from '../viewers/CodeViewer';
 import DiffPreview from '../viewers/DiffViewer';
 import ExcelPreview from '../viewers/ExcelViewer';
 import HTMLEditor from '../editors/HTMLEditor';
 import HTMLRenderer from '../renderers/HTMLRenderer';
 import ImagePreview from '../viewers/ImageViewer';
+import FoundryDocEditor from '../editors/FoundryDocEditor';
 import MarkdownEditor from '../editors/MarkdownEditor';
 import MarkdownPreview from '../viewers/MarkdownViewer';
 import PDFPreview from '../viewers/PDFViewer';
@@ -39,7 +42,7 @@ const PreviewPanel: React.FC = () => {
   const layout = useLayoutContext();
 
   // View states
-  const [viewMode, setViewMode] = useState<'source' | 'preview'>('preview');
+  const [viewMode, setViewMode] = useState<'source' | 'preview' | 'wysiwyg'>('preview');
   const [isSplitScreenEnabled, setIsSplitScreenEnabled] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [inspectMode, setInspectMode] = useState(false);
@@ -115,6 +118,26 @@ const PreviewPanel: React.FC = () => {
       } catch {
         // Silently ignore errors
       }
+    },
+    [updateContent]
+  );
+
+  // WYSIWYG (TipTap) state management for markdown
+  const turndownRef = useRef(new TurndownService({ headingStyle: 'atx' as const, codeBlockStyle: 'fenced' as const }));
+  const [wysiwygHtml, setWysiwygHtml] = useState('');
+
+  // Convert markdown → HTML when entering WYSIWYG mode
+  useEffect(() => {
+    if (viewMode === 'wysiwyg' && activeTab?.contentType === 'markdown' && activeTab.content) {
+      setWysiwygHtml(marked.parse(activeTab.content) as string);
+    }
+  }, [viewMode, activeTab?.id]); // Re-convert on mode switch or tab change
+
+  const handleWysiwygChange = useCallback(
+    (html: string) => {
+      setWysiwygHtml(html);
+      const md = turndownRef.current.turndown(html);
+      updateContent(md);
     },
     [updateContent]
   );
@@ -400,8 +423,15 @@ const PreviewPanel: React.FC = () => {
         );
       }
 
-      // Non-split mode: Single panel (source or preview)
-      return <MarkdownPreview content={content} hideToolbar viewMode={viewMode} onViewModeChange={setViewMode} onContentChange={updateContent} filePath={metadata?.filePath} />;
+      // Non-split mode: Single panel (source, preview, or wysiwyg)
+      if (viewMode === 'wysiwyg') {
+        return (
+          <div className='flex-1 overflow-hidden'>
+            <FoundryDocEditor value={wysiwygHtml} onChange={handleWysiwygChange} />
+          </div>
+        );
+      }
+      return <MarkdownPreview content={content} hideToolbar viewMode={viewMode === 'source' ? 'source' : 'preview'} onViewModeChange={setViewMode} onContentChange={updateContent} filePath={metadata?.filePath} />;
     }
 
     // HTML mode
@@ -464,9 +494,12 @@ const PreviewPanel: React.FC = () => {
       }
     }
 
+    // Narrow viewMode for non-markdown viewers that only support source/preview
+    const narrowedViewMode: 'source' | 'preview' = viewMode === 'wysiwyg' ? 'preview' : viewMode;
+
     // Other types: Full-screen preview
     if (contentType === 'diff') {
-      return <DiffPreview content={content} metadata={metadata} hideToolbar viewMode={viewMode} onViewModeChange={setViewMode} />;
+      return <DiffPreview content={content} metadata={metadata} hideToolbar viewMode={narrowedViewMode} onViewModeChange={setViewMode} />;
     } else if (contentType === 'code') {
       // Split-screen mode: Editor + Preview
       if (isSplitScreenEnabled && isEditMode && isEditable) {
@@ -506,7 +539,7 @@ const PreviewPanel: React.FC = () => {
         );
       }
       // Otherwise show code preview
-      return <CodePreview content={content} language={metadata?.language} hideToolbar viewMode={viewMode} onViewModeChange={setViewMode} />;
+      return <CodePreview content={content} language={metadata?.language} hideToolbar viewMode={narrowedViewMode} onViewModeChange={setViewMode} />;
     } else if (contentType === 'pdf') {
       return <PDFPreview filePath={metadata?.filePath} content={content} />;
     } else if (contentType === 'ppt') {

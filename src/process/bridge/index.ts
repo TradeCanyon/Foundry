@@ -27,6 +27,10 @@ import { initShellBridge } from './shellBridge';
 import { initUpdateBridge } from './updateBridge';
 import { initWebuiBridge } from './webuiBridge';
 import { initImageBridge } from './imageBridge';
+import { initProjectBridge } from './projectBridge';
+import { initMemoryBridge } from './memoryBridge';
+import { initEmberBridge } from './emberBridge';
+import { initVoiceBridge } from './voiceBridge';
 import { initWindowControlsBridge } from './windowControlsBridge';
 
 /**
@@ -57,6 +61,10 @@ export function initAllBridges(): void {
   initCronBridge();
   initClaudeRoutingBridge();
   initImageBridge();
+  initProjectBridge();
+  initMemoryBridge();
+  initEmberBridge();
+  initVoiceBridge();
 }
 
 /**
@@ -71,6 +79,6 @@ export async function initializeAcpDetector(): Promise<void> {
 }
 
 // Export initialization functions for individual use
-export { initAcpConversationBridge, initApplicationBridge, initAuthBridge, initChannelBridge, initClaudeRoutingBridge, initCodexConversationBridge, initConversationBridge, initCronBridge, initDatabaseBridge, initDialogBridge, initDocumentBridge, initFsBridge, initGeminiBridge, initGeminiConversationBridge, initImageBridge, initMcpBridge, initModelBridge, initPreviewHistoryBridge, initShellBridge, initUpdateBridge, initWebuiBridge, initWindowControlsBridge };
+export { initAcpConversationBridge, initApplicationBridge, initAuthBridge, initChannelBridge, initClaudeRoutingBridge, initCodexConversationBridge, initConversationBridge, initCronBridge, initDatabaseBridge, initDialogBridge, initDocumentBridge, initEmberBridge, initFsBridge, initGeminiBridge, initGeminiConversationBridge, initImageBridge, initMcpBridge, initMemoryBridge, initModelBridge, initPreviewHistoryBridge, initProjectBridge, initShellBridge, initUpdateBridge, initVoiceBridge, initWebuiBridge, initWindowControlsBridge };
 // Export window control utility functions
 export { registerWindowMaximizeListeners } from './windowControlsBridge';

@@ -5,6 +5,10 @@
  */
 
 import { getSkillsDir, loadSkillsContent } from '@process/initStorage';
+import { formatConstitutionForPrompt } from '@process/services/constitutionService';
+import { truncateToTokenBudget, allocateBudget, estimateTokens } from '@process/services/contextBudget';
+import { buildMemoryContext } from '@process/services/memoryService';
+import { loadProjectInstructions, loadProjectSkills, touchProject } from '@process/services/projectService';
 import { AcpSkillManager, buildSkillsIndexText } from './AcpSkillManager';
 
 /**
@@ -15,6 +19,10 @@ export interface FirstMessageConfig {
   presetContext?: string;
   /** Enabled skills list */
   enabledSkills?: string[];
+  /** Workspace path (for per-project constitution) */
+  workspace?: string;
+  /** Whether to include constitution (default: true) */
+  includeConstitution?: boolean;
 }
 
 /**
@@ -25,6 +33,30 @@ export interface FirstMessageConfig {
  */
 export async function buildSystemInstructions(config: FirstMessageConfig): Promise<string | undefined> {
   const instructions: string[] = [];
+  const budget = allocateBudget();
+
+  // Constitution (fixed allocation, injected first)
+  if (config.includeConstitution !== false) {
+    const constitution = formatConstitutionForPrompt(config.workspace);
+    instructions.push(truncateToTokenBudget(constitution, budget.constitution));
+  }
+
+  // Project instructions (.foundry/instructions.md)
+  if (config.workspace) {
+    const projectInstructions = loadProjectInstructions(config.workspace);
+    if (projectInstructions) {
+      instructions.push(`[Project Instructions]\n${truncateToTokenBudget(projectInstructions, budget.skills)}`);
+    }
+
+    // Project skills (.foundry/skills/*.md)
+    const projectSkills = loadProjectSkills(config.workspace);
+    if (projectSkills) {
+      instructions.push(`[Project Skills]\n${projectSkills}`);
+    }
+
+    // Touch lastActive timestamp
+    touchProject(config.workspace);
+  }
 
   // Add preset context
   if (config.presetContext) {
@@ -37,6 +69,12 @@ export async function buildSystemInstructions(config: FirstMessageConfig): Promi
     if (skillsContent) {
       instructions.push(skillsContent);
     }
+  }
+
+  // Memory injection (Phase 5) — user profile + relevant memories
+  const memoryContext = buildMemoryContext({ workspace: config.workspace });
+  if (memoryContext) {
+    instructions.push(memoryContext);
   }
 
   if (instructions.length === 0) {
@@ -79,13 +117,35 @@ export async function prepareFirstMessage(content: string, config: FirstMessageC
  */
 export async function prepareFirstMessageWithSkillsIndex(content: string, config: FirstMessageConfig): Promise<string> {
   const instructions: string[] = [];
+  const budget = allocateBudget();
 
-  // 1. Add preset rules
+  // 0. Constitution (fixed allocation, always first)
+  if (config.includeConstitution !== false) {
+    const constitution = formatConstitutionForPrompt(config.workspace);
+    instructions.push(truncateToTokenBudget(constitution, budget.constitution));
+  }
+
+  // 1. Project instructions (.foundry/instructions.md) + skills
+  if (config.workspace) {
+    const projectInstructions = loadProjectInstructions(config.workspace);
+    if (projectInstructions) {
+      instructions.push(`[Project Instructions]\n${truncateToTokenBudget(projectInstructions, budget.skills)}`);
+    }
+
+    const projectSkills = loadProjectSkills(config.workspace);
+    if (projectSkills) {
+      instructions.push(`[Project Skills]\n${projectSkills}`);
+    }
+
+    touchProject(config.workspace);
+  }
+
+  // 2. Add preset rules
   if (config.presetContext) {
     instructions.push(config.presetContext);
   }
 
-  // 2. Load skills INDEX (including builtin skills + optional skills)
+  // 3. Load skills INDEX (including builtin skills + optional skills)
   // Use singleton to avoid repeated filesystem scans
   const skillManager = AcpSkillManager.getInstance(config.enabledSkills);
   // discoverSkills auto-loads builtin skills first
@@ -117,6 +177,12 @@ For example:
 
       instructions.push(skillsInstruction);
     }
+  }
+
+  // Memory injection (Phase 5) — user profile + relevant memories
+  const memoryContext = buildMemoryContext({ query: content, workspace: config.workspace });
+  if (memoryContext) {
+    instructions.push(memoryContext);
   }
 
   if (instructions.length === 0) {

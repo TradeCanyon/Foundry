@@ -9,8 +9,12 @@ import { getChannelMessageService } from '../agent/ChannelMessageService';
 import { ActionExecutor } from '../gateway/ActionExecutor';
 import { PluginManager, registerPlugin } from '../gateway/PluginManager';
 import { PairingService } from '../pairing/PairingService';
+import { DiscordPlugin } from '../plugins/discord/DiscordPlugin';
 import { LarkPlugin } from '../plugins/lark/LarkPlugin';
+import { SignalPlugin } from '../plugins/signal/SignalPlugin';
+import { SlackPlugin } from '../plugins/slack/SlackPlugin';
 import { TelegramPlugin } from '../plugins/telegram/TelegramPlugin';
+import { WhatsAppPlugin } from '../plugins/whatsapp/WhatsAppPlugin';
 import type { IChannelPluginConfig, PluginType } from '../types';
 import { SessionManager } from './SessionManager';
 
@@ -45,6 +49,10 @@ export class ChannelManager {
     // Register available plugins
     registerPlugin('telegram', TelegramPlugin);
     registerPlugin('lark', LarkPlugin);
+    registerPlugin('whatsapp', WhatsAppPlugin);
+    registerPlugin('discord', DiscordPlugin);
+    registerPlugin('slack', SlackPlugin);
+    registerPlugin('signal', SignalPlugin);
   }
 
   /**
