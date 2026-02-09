@@ -6,7 +6,6 @@ import { uuid } from '@/common/utils';
 import ContextUsageIndicator from '@/renderer/components/ContextUsageIndicator';
 import FilePreview from '@/renderer/components/FilePreview';
 import HorizontalFileList from '@/renderer/components/HorizontalFileList';
-import ModelModeSelector, { type ModelMode } from '@/renderer/components/ModelModeSelector';
 import SendBox from '@/renderer/components/sendbox';
 import SendBoxSettingsPopover from '@/renderer/components/SendBoxSettingsPopover';
 import ThoughtDisplay, { type ThoughtData } from '@/renderer/components/ThoughtDisplay';
@@ -442,18 +441,6 @@ const GeminiSendBox: React.FC<{
   const { thought, running, tokenUsage, setActiveMsgId, setWaitingResponse, resetState } = useGeminiMessage(conversation_id, handleGeminiError);
 
   // Model mode selector state (Air/Custom/Pro)
-  const [modelMode, setModelMode] = useState<ModelMode>('auto');
-
-  // Default subagents and MCPs for the settings popover
-  const defaultSubagents = useMemo(
-    () => [
-      { key: 'cowork', label: 'CoWork', enabled: true },
-      { key: 'researcher', label: 'Researcher', enabled: true },
-      { key: 'report-writer', label: 'Report Writer', enabled: false },
-    ],
-    []
-  );
-  const defaultMcps = useMemo(() => [] as { key: string; label: string; icon?: string; enabled: boolean }[], []);
 
   // Suggested reply state
   const [suggestedReply, setSuggestedReply] = useState('');
@@ -736,13 +723,12 @@ const GeminiSendBox: React.FC<{
                 });
               }}
             />
-            <SendBoxSettingsPopover subagents={defaultSubagents} mcps={defaultMcps} />
+            <SendBoxSettingsPopover />
             <VoiceModeButton />
           </div>
         }
         sendButtonPrefix={
           <div className='flex items-center gap-6px'>
-            <ModelModeSelector mode={modelMode} onModeChange={setModelMode} />
             <ContextUsageIndicator tokenUsage={tokenUsage} contextLimit={getModelContextLimit(currentModel?.useModel)} size={24} />
           </div>
         }

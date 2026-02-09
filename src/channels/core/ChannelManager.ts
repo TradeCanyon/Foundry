@@ -10,7 +10,6 @@ import { ActionExecutor } from '../gateway/ActionExecutor';
 import { PluginManager, registerPlugin } from '../gateway/PluginManager';
 import { PairingService } from '../pairing/PairingService';
 import { DiscordPlugin } from '../plugins/discord/DiscordPlugin';
-import { LarkPlugin } from '../plugins/lark/LarkPlugin';
 import { SignalPlugin } from '../plugins/signal/SignalPlugin';
 import { SlackPlugin } from '../plugins/slack/SlackPlugin';
 import { TelegramPlugin } from '../plugins/telegram/TelegramPlugin';
@@ -48,7 +47,6 @@ export class ChannelManager {
     // Private constructor for singleton pattern
     // Register available plugins
     registerPlugin('telegram', TelegramPlugin);
-    registerPlugin('lark', LarkPlugin);
     registerPlugin('whatsapp', WhatsAppPlugin);
     registerPlugin('discord', DiscordPlugin);
     registerPlugin('slack', SlackPlugin);
@@ -229,14 +227,6 @@ export class ChannelManager {
       if (token) {
         credentials = { token };
       }
-    } else if (pluginType === 'lark') {
-      const appId = config.appId as string | undefined;
-      const appSecret = config.appSecret as string | undefined;
-      const encryptKey = config.encryptKey as string | undefined;
-      const verificationToken = config.verificationToken as string | undefined;
-      if (appId && appSecret) {
-        credentials = { appId, appSecret, encryptKey, verificationToken };
-      }
     }
 
     const pluginConfig: IChannelPluginConfig = {
@@ -307,20 +297,6 @@ export class ChannelManager {
       };
     }
 
-    if (pluginType === 'lark') {
-      const appId = extraConfig?.appId;
-      const appSecret = extraConfig?.appSecret;
-      if (!appId || !appSecret) {
-        return { success: false, error: 'App ID and App Secret are required for Lark' };
-      }
-      const result = await LarkPlugin.testConnection(appId, appSecret);
-      return {
-        success: result.success,
-        botUsername: result.botInfo?.name,
-        error: result.error,
-      };
-    }
-
     return { success: false, error: `Unknown plugin type: ${pluginType}` };
   }
 
@@ -331,7 +307,8 @@ export class ChannelManager {
     if (pluginId.startsWith('telegram')) return 'telegram';
     if (pluginId.startsWith('slack')) return 'slack';
     if (pluginId.startsWith('discord')) return 'discord';
-    if (pluginId.startsWith('lark')) return 'lark';
+    if (pluginId.startsWith('whatsapp')) return 'whatsapp';
+    if (pluginId.startsWith('signal')) return 'signal';
     return 'telegram'; // Default
   }
 

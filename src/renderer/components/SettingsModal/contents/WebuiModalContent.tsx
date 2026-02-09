@@ -14,7 +14,6 @@ import { QRCodeSVG } from 'qrcode.react';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSettingsViewMode } from '../settingsViewContext';
-import ChannelModalContent from './ChannelModalContent';
 
 /**
  * Preference row component
@@ -535,7 +534,7 @@ const WebuiModalContent: React.FC = () => {
       <FoundryScrollArea className='flex-1 min-h-0 pb-16px' disableOverflow={isPageMode}>
         <div className='space-y-16px'>
           {/* Title */}
-          <h2 className='text-20px font-500 text-t-primary m-0'>WebUI</h2>
+          <h2 className='text-20px font-500 text-t-primary m-0'>Remote Access</h2>
 
           {/* Description */}
           <div className='p-16px bg-fill-2 rd-12px border border-line text-13px text-t-secondary leading-relaxed'>
@@ -648,12 +647,6 @@ const WebuiModalContent: React.FC = () => {
                 </div>
               </>
             )}
-          </div>
-
-          {/* Channels Configuration */}
-          <div className='mt-24px'>
-            <h2 className='text-20px font-500 text-t-primary m-0 mb-16px'>{t('settings.channels', 'Channels')}</h2>
-            <ChannelModalContent />
           </div>
         </div>
       </FoundryScrollArea>

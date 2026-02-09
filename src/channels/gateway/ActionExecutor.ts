@@ -15,8 +15,6 @@ import { getChannelMessageService } from '../agent/ChannelMessageService';
 import type { SessionManager } from '../core/SessionManager';
 import type { PairingService } from '../pairing/PairingService';
 import type { PluginMessageHandler } from '../plugins/BasePlugin';
-import { createMainMenuCard, createErrorRecoveryCard, createResponseActionsCard, createToolConfirmationCard } from '../plugins/lark/LarkCards';
-import { convertHtmlToLarkMarkdown } from '../plugins/lark/LarkAdapter';
 import { createMainMenuKeyboard, createResponseActionsKeyboard, createToolConfirmationKeyboard } from '../plugins/telegram/TelegramKeyboards';
 import { escapeHtml } from '../plugins/telegram/TelegramAdapter';
 import type { IUnifiedIncomingMessage, IUnifiedOutgoingMessage, PluginType } from '../types';
@@ -27,50 +25,35 @@ import type { PluginManager } from './PluginManager';
 /**
  * Get main menu reply markup based on platform
  */
-function getMainMenuMarkup(platform: PluginType) {
-  if (platform === 'lark') {
-    return createMainMenuCard();
-  }
+function getMainMenuMarkup(_platform: PluginType) {
   return createMainMenuKeyboard();
 }
 
 /**
  * Get response actions markup based on platform
  */
-function getResponseActionsMarkup(platform: PluginType, text?: string) {
-  if (platform === 'lark') {
-    return createResponseActionsCard(text || '');
-  }
+function getResponseActionsMarkup(_platform: PluginType, _text?: string) {
   return createResponseActionsKeyboard();
 }
 
 /**
  * Get tool confirmation markup based on platform
  */
-function getToolConfirmationMarkup(platform: PluginType, callId: string, options: Array<{ label: string; value: string }>, title?: string, description?: string) {
-  if (platform === 'lark') {
-    return createToolConfirmationCard(callId, title || 'Confirmation', description || 'Please confirm', options);
-  }
+function getToolConfirmationMarkup(_platform: PluginType, callId: string, options: Array<{ label: string; value: string }>, _title?: string, _description?: string) {
   return createToolConfirmationKeyboard(callId, options);
 }
 
 /**
  * Get error recovery markup based on platform
  */
-function getErrorRecoveryMarkup(platform: PluginType, errorMessage?: string) {
-  if (platform === 'lark') {
-    return createErrorRecoveryCard(errorMessage);
-  }
-  return createMainMenuKeyboard(); // Telegram uses main menu for recovery
+function getErrorRecoveryMarkup(_platform: PluginType, _errorMessage?: string) {
+  return createMainMenuKeyboard();
 }
 
 /**
  * Escape/format text for platform
  */
-function formatTextForPlatform(text: string, platform: PluginType): string {
-  if (platform === 'lark') {
-    return convertHtmlToLarkMarkdown(text);
-  }
+function formatTextForPlatform(text: string, _platform: PluginType): string {
   return escapeHtml(text);
 }
 
@@ -312,7 +295,7 @@ export class ActionExecutor {
         const model = await getTelegramDefaultModel();
 
         // Use ConversationService to get or create conversation (based on platform)
-        const conversationName = platform === 'lark' ? 'Lark Assistant' : 'Telegram Assistant';
+        const conversationName = `${platform.charAt(0).toUpperCase() + platform.slice(1)} Assistant`;
         const result = await ConversationService.getOrCreateTelegramConversation({
           model,
           name: conversationName,

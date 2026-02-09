@@ -66,7 +66,11 @@ export class ImageGenerationService {
     }
 
     // Get configured native model
-    const nativeModel = (await ProcessConfig.get('tools.imageGenNativeModel')) || 'gemini-2.5-flash-preview-image-generation';
+    let nativeModel = (await ProcessConfig.get('tools.imageGenNativeModel')) || 'gemini-2.5-flash-image';
+    // Auto-migrate old invalid model names
+    if (nativeModel.includes('preview-image-generation')) {
+      nativeModel = 'gemini-2.5-flash-image';
+    }
 
     const client = new GoogleGenAI({ apiKey });
 
@@ -89,7 +93,7 @@ export class ImageGenerationService {
         model: nativeModel,
         contents: [{ role: 'user', parts }],
         config: {
-          responseModalities: ['IMAGE', 'TEXT'],
+          responseModalities: ['TEXT', 'IMAGE'],
         },
       });
 
@@ -237,7 +241,10 @@ export class ImageGenerationService {
     // 2. Check Gemini API key
     const geminiKey = await ImageGenerationService.getGeminiApiKey();
     if (geminiKey) {
-      const nativeModel = (await ProcessConfig.get('tools.imageGenNativeModel')) || 'gemini-2.5-flash-preview-image-generation';
+      let nativeModel = (await ProcessConfig.get('tools.imageGenNativeModel')) || 'gemini-2.5-flash-image';
+      if (nativeModel.includes('preview-image-generation')) {
+        nativeModel = 'gemini-2.5-flash-image';
+      }
       return { available: true, method: 'native', nativeModel };
     }
 

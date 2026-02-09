@@ -51,10 +51,11 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project, chatCount = 0, onCli
 
   return (
     <div
-      className='relative rd-12px cursor-pointer transition-all duration-200 p-16px'
+      className='relative rd-12px cursor-pointer transition-all duration-200 p-20px'
       style={{
         backgroundColor: 'var(--bg-1)',
         border: '1px solid var(--bg-3)',
+        borderLeft: `3px solid ${typeColor}`,
         boxShadow: hovered ? '0 4px 16px rgba(0, 0, 0, 0.1)' : '0 1px 3px rgba(0, 0, 0, 0.04)',
         transform: hovered ? 'translateY(-1px)' : 'none',
       }}
@@ -91,8 +92,8 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project, chatCount = 0, onCli
       </div>
 
       {/* Description */}
-      <p className='text-12px lh-18px m-0 mb-12px overflow-hidden text-ellipsis' style={{ color: 'var(--text-secondary)', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
-        {project.description || 'No description'}
+      <p className='text-12px lh-18px m-0 mb-12px overflow-hidden text-ellipsis' style={{ color: project.description ? 'var(--text-secondary)' : 'var(--text-tertiary)', fontStyle: project.description ? 'normal' : 'italic', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical' }}>
+        {project.description || 'Add a description to help AI agents understand this project'}
       </p>
 
       {/* Footer: Type badge + metadata */}

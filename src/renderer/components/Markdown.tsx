@@ -18,7 +18,7 @@ import 'katex/dist/katex.min.css';
 
 import { ipcBridge } from '@/common';
 import { Message } from '@arco-design/web-react';
-import { Copy, Down, Up } from '@icon-park/react';
+import { Copy, Down, DownloadOne, Up } from '@icon-park/react';
 import { theme } from '@office-ai/platform';
 import classNames from 'classnames';
 import React, { useMemo, useState } from 'react';
@@ -161,11 +161,32 @@ function CodeBlock(props: any) {
               {lineCount >= 20 && <span style={{ marginLeft: '6px', opacity: 0.7 }}>{lineCount} lines</span>}
             </span>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <DownloadOne
+                theme='outline'
+                size='18'
+                style={{ cursor: 'pointer' }}
+                fill='var(--text-secondary)'
+                title='Download'
+                onClick={() => {
+                  const ext = language || 'txt';
+                  const blob = new Blob([formattedCode], { type: 'text/plain;charset=utf-8' });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = `code.${ext}`;
+                  document.body.appendChild(a);
+                  a.click();
+                  document.body.removeChild(a);
+                  URL.revokeObjectURL(url);
+                  Message.success('Downloaded');
+                }}
+              />
               <Copy
                 theme='outline'
                 size='18'
                 style={{ cursor: 'pointer' }}
                 fill='var(--text-secondary)'
+                title='Copy'
                 onClick={() => {
                   void navigator.clipboard.writeText(formattedCode).then(() => {
                     Message.success('Copied');

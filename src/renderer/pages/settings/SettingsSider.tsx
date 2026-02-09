@@ -1,6 +1,6 @@
 import FlexFullContainer from '@/renderer/components/FlexFullContainer';
 import { isElectronDesktop } from '@/renderer/utils/platform';
-import { Computer, Gemini, Info, LinkCloud, System, Toolkit, Robot, Earth } from '@icon-park/react';
+import { Computer, Gemini, Info, LinkCloud, System, Toolkit, Robot, Earth, Shield, Brain, Fire, Lightning, PlugOne, VoiceOne, Communication } from '@icon-park/react';
 import classNames from 'classnames';
 import React, { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -38,18 +38,53 @@ const SettingsSider: React.FC<{ collapsed?: boolean }> = ({ collapsed = false })
         path: 'tools',
       },
       {
+        label: t('settings.constitution', 'Constitution'),
+        icon: <Shield />,
+        path: 'constitution',
+      },
+      {
+        label: t('settings.memory', 'Memory'),
+        icon: <Brain />,
+        path: 'memory',
+      },
+      {
+        label: t('settings.ember', 'Ember'),
+        icon: <Fire />,
+        path: 'ember',
+      },
+      {
+        label: t('settings.skills', 'Skills'),
+        icon: <Lightning />,
+        path: 'skills',
+      },
+      {
+        label: t('settings.mcp', 'MCP Store'),
+        icon: <PlugOne />,
+        path: 'mcp',
+      },
+      {
+        label: t('settings.voice', 'Voice'),
+        icon: <VoiceOne />,
+        path: 'voice',
+      },
+      {
         label: t('settings.display'),
         icon: <Computer />,
         path: 'display',
       },
     ];
 
-    // Only add WebUI option on desktop (includes Assistant config)
+    // Only add WebUI/Channels on desktop
     if (isDesktop) {
       items.push({
-        label: t('settings.webui'),
+        label: t('settings.remoteAccess', 'Remote Access'),
         icon: <Earth />,
         path: 'webui',
+      });
+      items.push({
+        label: t('settings.channels', 'Channels'),
+        icon: <Communication />,
+        path: 'channels',
       });
     }
 

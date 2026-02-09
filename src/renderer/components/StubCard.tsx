@@ -11,7 +11,7 @@
  */
 
 import { Message } from '@arco-design/web-react';
-import { Code, Copy, Down, Up } from '@icon-park/react';
+import { Code, Copy, Down, DownloadOne, Up } from '@icon-park/react';
 import React, { useState } from 'react';
 
 interface StubCardProps {
@@ -81,6 +81,22 @@ const StubCard: React.FC<StubCardProps> = ({ language, code, lineCount, renderEx
     });
   };
 
+  const handleDownload = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const ext = language || 'txt';
+    const downloadName = filename || `code.${ext}`;
+    const blob = new Blob([code], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = downloadName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    Message.success('Downloaded');
+  };
+
   return (
     <div style={{ width: '100%', marginTop: '4px', marginBottom: '4px' }}>
       <div
@@ -112,7 +128,8 @@ const StubCard: React.FC<StubCardProps> = ({ language, code, lineCount, renderEx
           {label}
         </span>
         <span style={{ fontSize: '12px', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>{lineCount} lines</span>
-        <Copy theme='outline' size='16' fill='var(--text-secondary)' style={{ cursor: 'pointer', flexShrink: 0 }} onClick={handleCopy} />
+        <DownloadOne theme='outline' size='16' fill='var(--text-secondary)' style={{ cursor: 'pointer', flexShrink: 0 }} onClick={handleDownload} title='Download' />
+        <Copy theme='outline' size='16' fill='var(--text-secondary)' style={{ cursor: 'pointer', flexShrink: 0 }} onClick={handleCopy} title='Copy' />
         {expanded ? <Up theme='outline' size='16' fill='var(--text-secondary)' /> : <Down theme='outline' size='16' fill='var(--text-secondary)' />}
       </div>
 

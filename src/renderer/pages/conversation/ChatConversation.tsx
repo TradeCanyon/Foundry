@@ -26,7 +26,7 @@ import ChatSider from './ChatSider';
 import CodexChat from './codex/CodexChat';
 import EmberChat from './ember/EmberChat';
 import GeminiChat from './gemini/GeminiChat';
-// import ImageChat from './image/ImageChat'; // Shelved
+import ImageChat from './image/ImageChat';
 import GeminiModelSelector from './gemini/GeminiModelSelector';
 import { useGeminiModelSelection } from './gemini/useGeminiModelSelection';
 // import SkillRuleGenerator from './components/SkillRuleGenerator'; // Temporarily hidden
@@ -153,7 +153,8 @@ const ChatConversation: React.FC<{
         return <CodexChat key={conversation.id} conversation_id={conversation.id} workspace={conversation.extra?.workspace} />;
       case 'ember':
         return <EmberChat key={conversation.id} conversation_id={conversation.id} />;
-      // case 'image': shelved
+      case 'image':
+        return <ImageChat key={conversation.id} conversation_id={conversation.id} />;
       default:
         return null;
     }

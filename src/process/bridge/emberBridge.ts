@@ -16,10 +16,18 @@
  */
 
 import { ember } from '@/common/ipcBridge';
+import { RateLimiter } from '@/channels/utils/rateLimiter';
 import { emberService } from '@process/services/emberService';
+
+const emberRateLimiter = new RateLimiter({ maxAttempts: 30, windowMs: 60_000 });
 
 export function initEmberBridge(): void {
   ember.send.provider(async ({ input, workspace, conversationId, source }) => {
+    const { allowed, retryAfterMs } = emberRateLimiter.check('ember.send');
+    if (!allowed) {
+      return { text: `Rate limited. Try again in ${Math.ceil(retryAfterMs / 1000)}s.`, intent: 'error' as const };
+    }
+
     // Input length limit to prevent memory/DB abuse
     const safeInput = typeof input === 'string' ? input.substring(0, 10000) : '';
     return emberService.processMessage(safeInput, {

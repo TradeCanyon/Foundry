@@ -22,7 +22,6 @@ import HorizontalFileList from '@/renderer/components/HorizontalFileList';
 import { usePreviewContext } from '@/renderer/pages/conversation/preview';
 import { useLatestRef } from '@/renderer/hooks/useLatestRef';
 import { useAutoTitle } from '@/renderer/hooks/useAutoTitle';
-import ModelModeSelector, { type ModelMode } from '@/renderer/components/ModelModeSelector';
 import SendBoxSettingsPopover from '@/renderer/components/SendBoxSettingsPopover';
 import VoiceModeButton from '@/renderer/components/VoiceModeButton';
 
@@ -225,18 +224,11 @@ const useSendBoxDraft = (conversation_id: string) => {
   };
 };
 
-const defaultSubagents = [
-  { key: 'cowork', label: 'CoWork', enabled: true },
-  { key: 'researcher', label: 'Researcher', enabled: false },
-  { key: 'report-writer', label: 'Report Writer', enabled: false },
-];
-
 const AcpSendBox: React.FC<{
   conversation_id: string;
   backend: AcpBackend;
 }> = ({ conversation_id, backend }) => {
   const [workspacePath, setWorkspacePath] = useState('');
-  const [modelMode, setModelMode] = useState<ModelMode>('auto');
   const { thought, running, acpStatus, aiProcessing, setAiProcessing, resetState } = useAcpMessage(conversation_id);
   const { t } = useTranslation();
   const { checkAndUpdateTitle } = useAutoTitle();
@@ -484,13 +476,8 @@ const AcpSendBox: React.FC<{
                 });
               }}
             />
-            <SendBoxSettingsPopover subagents={defaultSubagents} mcps={[]} />
+            <SendBoxSettingsPopover />
             <VoiceModeButton />
-          </div>
-        }
-        sendButtonPrefix={
-          <div className='flex items-center gap-6px'>
-            <ModelModeSelector mode={modelMode} onModeChange={setModelMode} />
           </div>
         }
         prefix={

@@ -14,8 +14,8 @@ import { useSettingsViewMode } from '../settingsViewContext';
 
 /** Gemini native image models available when a Gemini API key is present */
 const GEMINI_NATIVE_MODELS = [
-  { value: 'gemini-2.5-flash-preview-image-generation', label: 'Gemini 2.5 Flash (Fast)' },
-  { value: 'gemini-2.0-flash-preview-image-generation', label: 'Gemini 2.0 Flash' },
+  { value: 'gemini-2.5-flash-image', label: 'Gemini 2.5 Flash (Fast)' },
+  { value: 'gemini-3-pro-image-preview', label: 'Gemini 3 Pro (High Quality)' },
 ] as const;
 
 const DEFAULT_NATIVE_MODEL = GEMINI_NATIVE_MODELS[0].value;

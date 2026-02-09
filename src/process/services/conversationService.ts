@@ -146,6 +146,17 @@ export class ConversationService {
           model: model,
           extra: extra as any,
         };
+      } else if (type === 'ember') {
+        // Ember conversations use their own lightweight IPC (ember.send), no worker needed
+        const now = Date.now();
+        conversation = {
+          id: id || uuid(),
+          name: name || 'Ember',
+          type: 'ember',
+          createTime: now,
+          modifyTime: now,
+          extra: (extra || {}) as any,
+        } as TChatConversation;
       } else {
         return { success: false, error: 'Invalid conversation type' };
       }
@@ -161,8 +172,8 @@ export class ConversationService {
         conversation.source = source;
       }
 
-      // Register with WorkerManage (image conversations don't need a worker)
-      if (type !== 'image') {
+      // Register with WorkerManage (image/ember conversations don't need a worker)
+      if (type !== 'image' && type !== 'ember') {
         const task = WorkerManage.buildConversation(conversation);
         if (task?.type === 'acp') {
           void (task as AcpAgentManager).initAgent();

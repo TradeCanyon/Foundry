@@ -8,6 +8,7 @@ import type { TProviderWithModel } from '@/common/storage';
 import type { GeminiClient } from '@office-ai/aioncli-core';
 import { AuthType, Config } from '@office-ai/aioncli-core';
 // import { ImageGenerationTool } from './img-gen'; // Disabled — image gen shelved
+import { BrowserNavigateTool, BrowserScreenshotTool, BrowserExtractTool, BrowserClickTool, BrowserFillTool, BrowserWaitTool } from './browser';
 import { WebFetchTool } from './web-fetch';
 import { WebSearchTool } from './web-search';
 
@@ -17,6 +18,7 @@ interface ConversationToolConfigOptions {
   geminiApiKey?: string;
   imageGenNativeModel?: string;
   webSearchEngine?: 'google' | 'default';
+  useBrowserAgent?: boolean;
 }
 
 /**
@@ -26,6 +28,7 @@ interface ConversationToolConfigOptions {
 export class ConversationToolConfig {
   private useGeminiWebSearch = false;
   private useFoundryWebFetch = false;
+  private useBrowserAgent = false;
   private excludeTools: string[] = [];
   private imageGenerationModel: TProviderWithModel | undefined;
   private geminiApiKey: string | undefined;
@@ -36,6 +39,7 @@ export class ConversationToolConfig {
     this.imageGenerationModel = options.imageGenerationModel;
     this.geminiApiKey = options.geminiApiKey;
     this.imageGenNativeModel = options.imageGenNativeModel;
+    this.useBrowserAgent = options.useBrowserAgent ?? true;
   }
 
   /**
@@ -61,6 +65,7 @@ export class ConversationToolConfig {
     return {
       useGeminiWebSearch: this.useGeminiWebSearch,
       useFoundryWebFetch: this.useFoundryWebFetch,
+      useBrowserAgent: this.useBrowserAgent,
       excludeTools: this.excludeTools,
     };
   }
@@ -85,6 +90,18 @@ export class ConversationToolConfig {
     if (this.useGeminiWebSearch) {
       const customWebSearchTool = new WebSearchTool(geminiClient, config.getMessageBus());
       toolRegistry.registerTool(customWebSearchTool);
+    }
+
+    // Register browser agent tools (6 tools for persistent browser control)
+    if (this.useBrowserAgent) {
+      const conversationId = config.getSessionId()?.split('########')[0] || 'default';
+      const bus = config.getMessageBus();
+      toolRegistry.registerTool(new BrowserNavigateTool(bus, conversationId));
+      toolRegistry.registerTool(new BrowserScreenshotTool(bus, conversationId));
+      toolRegistry.registerTool(new BrowserExtractTool(bus, conversationId));
+      toolRegistry.registerTool(new BrowserClickTool(bus, conversationId));
+      toolRegistry.registerTool(new BrowserFillTool(bus, conversationId));
+      toolRegistry.registerTool(new BrowserWaitTool(bus, conversationId));
     }
 
     // Sync tools to model client

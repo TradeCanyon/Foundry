@@ -8,7 +8,6 @@ import type { IActionContext, IActionResult, IRegisteredAction, ActionHandler } 
 import { PlatformActionNames, createSuccessResponse, createErrorResponse } from './types';
 import { getPairingService } from '../pairing/PairingService';
 import { createPairingCodeKeyboard, createPairingStatusKeyboard, createMainMenuKeyboard } from '../plugins/telegram/TelegramKeyboards';
-import { createPairingCard, createPairingStatusCard, createMainMenuCard, createPairingHelpCard } from '../plugins/lark/LarkCards';
 
 /**
  * PlatformActions - Handlers for platform-specific actions
@@ -19,43 +18,19 @@ import { createPairingCard, createPairingStatusCard, createMainMenuCard, createP
 
 // ==================== Platform-specific Markup Helpers ====================
 
-/**
- * Get main menu markup based on platform
- */
-function getMainMenuMarkup(platform: string) {
-  if (platform === 'lark') {
-    return createMainMenuCard();
-  }
+function getMainMenuMarkup(_platform: string) {
   return createMainMenuKeyboard();
 }
 
-/**
- * Get pairing code markup based on platform
- */
-function getPairingCodeMarkup(platform: string, code: string) {
-  if (platform === 'lark') {
-    return createPairingCard(code);
-  }
+function getPairingCodeMarkup(_platform: string, _code: string) {
   return createPairingCodeKeyboard();
 }
 
-/**
- * Get pairing status markup based on platform
- */
-function getPairingStatusMarkup(platform: string, code: string) {
-  if (platform === 'lark') {
-    return createPairingStatusCard(code);
-  }
+function getPairingStatusMarkup(_platform: string, _code: string) {
   return createPairingStatusKeyboard();
 }
 
-/**
- * Get pairing help markup based on platform
- */
-function getPairingHelpMarkup(platform: string) {
-  if (platform === 'lark') {
-    return createPairingHelpCard();
-  }
+function getPairingHelpMarkup(_platform: string) {
   return createPairingCodeKeyboard();
 }
 
@@ -168,7 +143,7 @@ export const handlePairingCheck: ActionHandler = async (context) => {
  */
 export const handlePairingHelp: ActionHandler = async (context) => {
   const platform = context.platform;
-  const platformName = platform === 'lark' ? 'Lark/Feishu' : 'Telegram';
+  const platformName = platform.charAt(0).toUpperCase() + platform.slice(1);
 
   return createSuccessResponse({
     type: 'text',

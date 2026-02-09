@@ -5,6 +5,7 @@
  */
 
 import type { CodexToolCallUpdate, IMessageAcpToolCall, IMessageToolGroup, TMessage } from '@/common/chatLib';
+import StubStream from '@/renderer/components/StubStream';
 import { useProcessingContextSafe } from '@/renderer/context/ConversationContext';
 import { iconColors } from '@/renderer/theme/colors';
 import { Image } from '@arco-design/web-react';
@@ -114,6 +115,8 @@ const ThinkingFooter: React.FC = () => {
   if (!isProcessing) return <div className='h-20px' />;
 
   const displayText = statusMessage || FOUNDRY_THINKING_PHRASES[phraseIndex % FOUNDRY_THINKING_PHRASES.length];
+  // Show code generation skeleton when executing write/code tools
+  const isCodeTool = statusMessage && /execut|writ|creat|generat/i.test(statusMessage);
 
   return (
     <div className='min-h-60px'>
@@ -124,6 +127,11 @@ const ThinkingFooter: React.FC = () => {
           <span className='inline-block w-20px text-left animate-pulse'>...</span>
         </span>
       </div>
+      {isCodeTool && (
+        <div className='max-w-780px mx-auto px-8px'>
+          <StubStream />
+        </div>
+      )}
     </div>
   );
 };

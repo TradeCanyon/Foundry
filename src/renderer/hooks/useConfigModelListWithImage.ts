@@ -3,8 +3,8 @@ import useSWR from 'swr';
 import { ipcBridge } from '../../common';
 
 /** Well-known image model IDs injected when a platform has none */
-const OPENROUTER_IMAGE_MODEL = 'google/gemini-2.5-flash-preview-image-generation:free';
-const GEMINI_IMAGE_MODEL = 'gemini-2.5-flash-preview-image-generation';
+const OPENROUTER_IMAGE_MODEL = 'google/gemini-2.5-flash-image:free';
+const GEMINI_IMAGE_MODEL = 'gemini-2.5-flash-image';
 
 const useConfigModelListWithImage = () => {
   const { data } = useSWR('configModelListWithImage', () => {

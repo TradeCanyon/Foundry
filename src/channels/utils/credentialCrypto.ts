@@ -114,25 +114,31 @@ export function decryptString(encoded: string): string {
 
 /**
  * Encrypt credentials object.
- * Only encrypts sensitive fields (token).
+ * Encrypts all string fields for future-proofing.
  */
-export function encryptCredentials(credentials: { token?: string } | undefined): { token?: string } | undefined {
+export function encryptCredentials<T extends object>(credentials: T | undefined): T | undefined {
   if (!credentials) return undefined;
 
-  return {
-    ...credentials,
-    token: credentials.token ? encryptString(credentials.token) : undefined,
-  };
+  const result = { ...credentials } as any;
+  for (const [key, value] of Object.entries(result)) {
+    if (typeof value === 'string' && value) {
+      result[key] = encryptString(value);
+    }
+  }
+  return result as T;
 }
 
 /**
  * Decrypt credentials object.
  */
-export function decryptCredentials(credentials: { token?: string } | undefined): { token?: string } | undefined {
+export function decryptCredentials<T extends object>(credentials: T | undefined): T | undefined {
   if (!credentials) return undefined;
 
-  return {
-    ...credentials,
-    token: credentials.token ? decryptString(credentials.token) : undefined,
-  };
+  const result = { ...credentials } as any;
+  for (const [key, value] of Object.entries(result)) {
+    if (typeof value === 'string' && value) {
+      result[key] = decryptString(value);
+    }
+  }
+  return result as T;
 }

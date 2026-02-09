@@ -219,6 +219,8 @@ export const database = {
   // Message editing operations
   deleteMessagesAfter: bridge.buildProvider<{ success: boolean; data?: { deletedCount: number }; msg?: string }, { conversation_id: string; afterTimestamp: number }>('database.delete-messages-after'),
   updateMessageContent: bridge.buildProvider<{ success: boolean; msg?: string }, { messageId: string; content: string }>('database.update-message-content'),
+  // Search conversations by name
+  searchConversations: bridge.buildProvider<TChatConversation[], { query: string; limit?: number }>('database.search-conversations'),
 };
 
 export const previewHistory = {
@@ -361,7 +363,7 @@ export interface IConfirmMessageParams {
 }
 
 export interface ICreateConversationParams {
-  type: 'gemini' | 'acp' | 'codex' | 'image';
+  type: 'gemini' | 'acp' | 'codex' | 'image' | 'ember';
   id?: string;
   name?: string;
   model: TProviderWithModel;
@@ -585,6 +587,7 @@ export interface IEmberConfig {
   autonomy: string;
   customPrompt?: string;
   enabled: boolean;
+  model?: string;
 }
 
 export interface IEmberResponse {

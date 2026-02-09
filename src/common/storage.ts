@@ -59,7 +59,7 @@ export interface IConfigStorageRefer {
   'tools.imageGenerationModel': TProviderWithModel & {
     switch: boolean;
   };
-  /** Gemini native image model preference (e.g. 'gemini-2.5-flash-preview-image-generation') */
+  /** Gemini native image model preference (e.g. 'gemini-2.5-flash-image') */
   'tools.imageGenNativeModel': string;
   // Whether to ask for confirmation when pasting files to workspace (true = don't ask again)
   'workspace.pasteConfirm'?: boolean;

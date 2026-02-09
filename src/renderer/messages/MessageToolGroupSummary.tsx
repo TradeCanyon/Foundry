@@ -19,7 +19,8 @@ const OPERATION_CATEGORIES: Record<string, string[]> = {
   Write: ['WriteFile', 'write_file', 'Create', 'create_file', 'Edit', 'edit_file'],
   Shell: ['Shell', 'shell', 'Exec', 'exec', 'RunCommand', 'run_command', 'bash'],
   Search: ['Search', 'search', 'Grep', 'grep', 'Find', 'find', 'glob'],
-  Web: ['WebFetch', 'web_fetch', 'Navigate', 'navigate', 'browse'],
+  Web: ['WebFetch', 'web_fetch', 'WebSearch', 'web_search'],
+  Browser: ['BrowserNavigate', 'browser_navigate', 'BrowserClick', 'browser_click', 'BrowserFill', 'browser_fill', 'BrowserScreenshot', 'browser_screenshot', 'BrowserExtract', 'browser_extract', 'BrowserWait', 'browser_wait'],
   MCP: [], // MCP tools are handled separately
 };
 

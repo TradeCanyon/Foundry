@@ -13,7 +13,6 @@ import { getChannelMessageService } from '../agent/ChannelMessageService';
 import { getChannelManager } from '../core/ChannelManager';
 import type { AgentDisplayInfo } from '../plugins/telegram/TelegramKeyboards';
 import { createAgentSelectionKeyboard, createHelpKeyboard, createMainMenuKeyboard, createSessionControlKeyboard } from '../plugins/telegram/TelegramKeyboards';
-import { createAgentSelectionCard, createFeaturesCard, createHelpCard, createMainMenuCard, createPairingGuideCard, createSessionStatusCard, createSettingsCard, createTipsCard } from '../plugins/lark/LarkCards';
 import type { ChannelAgentType } from '../types';
 import type { ActionHandler, IRegisteredAction } from './types';
 import { SystemActionNames, createErrorResponse, createSuccessResponse } from './types';
@@ -125,12 +124,11 @@ export const handleSessionNew: ActionHandler = async (context) => {
   // Create session with the new conversation ID
   const session = sessionManager.createSessionWithConversation(context.channelUser, result.conversation.id);
 
-  const markup = context.platform === 'lark' ? createMainMenuCard() : createMainMenuKeyboard();
   return createSuccessResponse({
     type: 'text',
     text: `🆕 <b>New Session Created</b>\n\nSession ID: <code>${session.id.slice(-8)}</code>\n\nYou can start a new conversation now!`,
     parseMode: 'HTML',
-    replyMarkup: markup,
+    replyMarkup: createMainMenuKeyboard(),
   });
 };
 
@@ -147,16 +145,6 @@ export const handleSessionStatus: ActionHandler = async (context) => {
 
   const userId = context.channelUser?.id;
   const session = userId ? sessionManager.getSession(userId) : null;
-
-  // Use platform-specific markup
-  if (context.platform === 'lark') {
-    const sessionData = session ? { id: session.id, agentType: session.agentType, createdAt: session.createdAt, lastActivity: session.lastActivity } : undefined;
-    return createSuccessResponse({
-      type: 'text',
-      text: '', // Lark card includes the text
-      replyMarkup: createSessionStatusCard(sessionData),
-    });
-  }
 
   if (!session) {
     return createSuccessResponse({
@@ -181,14 +169,7 @@ export const handleSessionStatus: ActionHandler = async (context) => {
 /**
  * Handle help.show - Show help menu
  */
-export const handleHelpShow: ActionHandler = async (context) => {
-  if (context.platform === 'lark') {
-    return createSuccessResponse({
-      type: 'text',
-      text: '', // Lark card includes the text
-      replyMarkup: createHelpCard(),
-    });
-  }
+export const handleHelpShow: ActionHandler = async (_context) => {
   return createSuccessResponse({
     type: 'text',
     text: ['❓ <b>Foundry Assistant</b>', '', 'A remote assistant to interact with Foundry via Telegram.', '', '<b>Common Actions:</b>', '• 🆕 New Chat - Start a new session', '• 📊 Status - View current session status', '• ❓ Help - Show this help message', '', 'Send a message to chat with the AI assistant.'].join('\n'),
@@ -200,14 +181,7 @@ export const handleHelpShow: ActionHandler = async (context) => {
 /**
  * Handle help.features - Show feature introduction
  */
-export const handleHelpFeatures: ActionHandler = async (context) => {
-  if (context.platform === 'lark') {
-    return createSuccessResponse({
-      type: 'text',
-      text: '',
-      replyMarkup: createFeaturesCard(),
-    });
-  }
+export const handleHelpFeatures: ActionHandler = async (_context) => {
   return createSuccessResponse({
     type: 'text',
     text: ['🤖 <b>Features</b>', '', '<b>AI Chat</b>', '• Natural language conversation', '• Streaming output, real-time display', '• Context memory support', '', '<b>Session Management</b>', '• Single session mode', '• Clear context anytime', '• View session status', '', '<b>Message Actions</b>', '• Copy reply content', '• Regenerate reply', '• Continue conversation'].join('\n'),
@@ -219,14 +193,7 @@ export const handleHelpFeatures: ActionHandler = async (context) => {
 /**
  * Handle help.pairing - Show pairing guide
  */
-export const handleHelpPairing: ActionHandler = async (context) => {
-  if (context.platform === 'lark') {
-    return createSuccessResponse({
-      type: 'text',
-      text: '',
-      replyMarkup: createPairingGuideCard(),
-    });
-  }
+export const handleHelpPairing: ActionHandler = async (_context) => {
   return createSuccessResponse({
     type: 'text',
     text: ['🔗 <b>Pairing Guide</b>', '', '<b>First-time Setup:</b>', '1. Send any message to the bot', '2. Bot displays pairing code', '3. Approve pairing in Foundry settings', '4. Ready to use after pairing', '', '<b>Notes:</b>', '• Pairing code valid for 10 minutes', '• Foundry app must be running', '• One Telegram account can only pair once'].join('\n'),
@@ -238,14 +205,7 @@ export const handleHelpPairing: ActionHandler = async (context) => {
 /**
  * Handle help.tips - Show usage tips
  */
-export const handleHelpTips: ActionHandler = async (context) => {
-  if (context.platform === 'lark') {
-    return createSuccessResponse({
-      type: 'text',
-      text: '',
-      replyMarkup: createTipsCard(),
-    });
-  }
+export const handleHelpTips: ActionHandler = async (_context) => {
   return createSuccessResponse({
     type: 'text',
     text: ['💬 <b>Tips</b>', '', '<b>Effective Conversations:</b>', '• Be clear and specific', '• Feel free to ask follow-ups', '• Regenerate if not satisfied', '', '<b>Quick Actions:</b>', '• Use bottom buttons for quick access', '• Tap message buttons for actions', '• New chat clears history context'].join('\n'),
@@ -257,14 +217,7 @@ export const handleHelpTips: ActionHandler = async (context) => {
 /**
  * Handle settings.show - Show settings info
  */
-export const handleSettingsShow: ActionHandler = async (context) => {
-  if (context.platform === 'lark') {
-    return createSuccessResponse({
-      type: 'text',
-      text: '',
-      replyMarkup: createSettingsCard(),
-    });
-  }
+export const handleSettingsShow: ActionHandler = async (_context) => {
   return createSuccessResponse({
     type: 'text',
     text: ['⚙️ <b>Settings</b>', '', 'Channel settings need to be configured in the Foundry app.', '', 'Open Foundry → WebUI → Channels'].join('\n'),
@@ -294,15 +247,6 @@ export const handleAgentShow: ActionHandler = async (context) => {
 
   if (availableAgents.length === 0) {
     return createErrorResponse('No agents available');
-  }
-
-  // Use platform-specific markup
-  if (context.platform === 'lark') {
-    return createSuccessResponse({
-      type: 'text',
-      text: '', // Lark card includes the text
-      replyMarkup: createAgentSelectionCard(availableAgents, currentAgent),
-    });
   }
 
   return createSuccessResponse({
@@ -342,12 +286,11 @@ export const handleAgentSelect: ActionHandler = async (context, params) => {
 
   // If same agent, no need to switch
   if (existingSession?.agentType === newAgentType) {
-    const markup = context.platform === 'lark' ? createMainMenuCard() : createMainMenuKeyboard();
     return createSuccessResponse({
       type: 'text',
       text: `✓ Already using <b>${getAgentDisplayName(newAgentType)}</b>`,
       parseMode: 'HTML',
-      replyMarkup: markup,
+      replyMarkup: createMainMenuKeyboard(),
     });
   }
 
@@ -372,12 +315,11 @@ export const handleAgentSelect: ActionHandler = async (context, params) => {
 
   console.log(`[SystemActions] Switched agent to ${newAgentType} for user ${context.channelUser.id}`);
 
-  const markup = context.platform === 'lark' ? createMainMenuCard() : createMainMenuKeyboard();
   return createSuccessResponse({
     type: 'text',
     text: [`✓ <b>Switched to ${getAgentDisplayName(newAgentType)}</b>`, '', 'A new conversation has been started.', '', 'Send a message to begin!'].join('\n'),
     parseMode: 'HTML',
-    replyMarkup: markup,
+    replyMarkup: createMainMenuKeyboard(),
   });
 };
 

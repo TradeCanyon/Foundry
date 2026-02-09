@@ -16,7 +16,14 @@
 
 import { ipcBridge } from '@/common';
 import type { IMemorySearchResult, IMemoryStats, IUserProfileInfo } from '@/common/ipcBridge';
+import { Tooltip } from '@arco-design/web-react';
 import React, { useCallback, useEffect, useState } from 'react';
+
+const MEMORY_TYPES = [
+  { id: 'fact', label: 'Fact', tooltip: 'A concrete piece of information or knowledge' },
+  { id: 'preference', label: 'Preference', tooltip: 'A user preference or working style' },
+  { id: 'decision', label: 'Decision', tooltip: 'An architectural or project decision' },
+] as const;
 
 const MemoryModalContent: React.FC = () => {
   const [stats, setStats] = useState<IMemoryStats | null>(null);
@@ -24,6 +31,13 @@ const MemoryModalContent: React.FC = () => {
   const [memories, setMemories] = useState<IMemorySearchResult[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [newMemoryContent, setNewMemoryContent] = useState('');
+  const [newMemoryType, setNewMemoryType] = useState<string>('fact');
+  const [editingProfileId, setEditingProfileId] = useState<string | null>(null);
+  const [editingProfileValue, setEditingProfileValue] = useState('');
+  const [editingMemoryId, setEditingMemoryId] = useState<string | null>(null);
+  const [editingMemoryContent, setEditingMemoryContent] = useState('');
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -84,12 +98,84 @@ const MemoryModalContent: React.FC = () => {
       {/* Stats cards */}
       {stats && (
         <div className='grid grid-cols-4 gap-12px'>
-          <StatCard label='Total' value={stats.totalMemories} />
-          <StatCard label='Project' value={stats.projectMemories} />
-          <StatCard label='Global' value={stats.globalMemories} />
-          <StatCard label='Profile' value={stats.profileEntries} />
+          <Tooltip content='Total stored memories'>
+            <div>
+              <StatCard label='Total Memories' value={stats.totalMemories} />
+            </div>
+          </Tooltip>
+          <Tooltip content='Project-scoped memories'>
+            <div>
+              <StatCard label='Project' value={stats.projectMemories} />
+            </div>
+          </Tooltip>
+          <Tooltip content='Global memories (across all projects)'>
+            <div>
+              <StatCard label='Global' value={stats.globalMemories} />
+            </div>
+          </Tooltip>
+          <Tooltip content='Learned user profile entries'>
+            <div>
+              <StatCard label='Profile' value={stats.profileEntries} />
+            </div>
+          </Tooltip>
         </div>
       )}
+
+      {/* Add Memory */}
+      <div>
+        {showAddForm ? (
+          <div className='flex flex-col gap-8px p-12px bg-fill-1 rd-8px'>
+            <textarea value={newMemoryContent} onChange={(e) => setNewMemoryContent(e.target.value)} placeholder='What should Foundry remember?' className='w-full px-12px py-8px rd-6px b-1 b-solid b-color-border-2 bg-bg-1 text-t-primary text-13px outline-none focus:b-brand resize-none placeholder:text-t-tertiary' rows={3} />
+            <div className='flex items-center gap-8px'>
+              <div className='flex items-center gap-4px'>
+                {MEMORY_TYPES.map((t) => (
+                  <Tooltip key={t.id} content={t.tooltip}>
+                    <button
+                      className='text-12px px-8px py-3px rd-4px cursor-pointer b-1 b-solid transition-colors'
+                      style={{
+                        backgroundColor: newMemoryType === t.id ? 'var(--color-primary-light-1)' : 'transparent',
+                        borderColor: newMemoryType === t.id ? 'rgb(var(--primary-6))' : 'var(--color-border-2)',
+                        color: newMemoryType === t.id ? 'rgb(var(--primary-6))' : 'var(--color-text-2)',
+                      }}
+                      onClick={() => setNewMemoryType(t.id)}
+                    >
+                      {t.label}
+                    </button>
+                  </Tooltip>
+                ))}
+              </div>
+              <div className='flex-1' />
+              <button
+                className='text-12px text-t-secondary cursor-pointer bg-transparent b-none hover:text-t-primary'
+                onClick={() => {
+                  setShowAddForm(false);
+                  setNewMemoryContent('');
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                className='text-12px text-white cursor-pointer px-12px py-4px rd-4px b-none'
+                style={{ backgroundColor: newMemoryContent.trim() ? '#ff6b35' : 'var(--color-fill-3)' }}
+                disabled={!newMemoryContent.trim()}
+                onClick={async () => {
+                  if (!newMemoryContent.trim()) return;
+                  await ipcBridge.memory.store.invoke({ content: newMemoryContent.trim(), type: newMemoryType });
+                  setNewMemoryContent('');
+                  setShowAddForm(false);
+                  void loadData();
+                }}
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button className='text-13px text-brand cursor-pointer bg-transparent b-none hover:underline' onClick={() => setShowAddForm(true)}>
+            + Add Memory
+          </button>
+        )}
+      </div>
 
       {/* User Profile section */}
       <div>
@@ -109,10 +195,39 @@ const MemoryModalContent: React.FC = () => {
               <div key={entry.id} className='flex items-center gap-8px px-12px py-8px bg-fill-1 rd-6px text-13px group'>
                 <span className='text-t-secondary min-w-80px shrink-0 font-500'>{entry.category}</span>
                 <span className='text-t-primary font-500'>{entry.key}:</span>
-                <span className='text-t-secondary flex-1'>{entry.value}</span>
-                <span className='text-11px text-t-tertiary shrink-0' title={`Confidence: ${Math.round(entry.confidence * 100)}%, Evidence: ${entry.evidenceCount}`}>
-                  {Math.round(entry.confidence * 100)}%
-                </span>
+                {editingProfileId === entry.id ? (
+                  <input
+                    className='flex-1 px-6px py-2px rd-4px b-1 b-solid b-color-border-2 bg-bg-1 text-t-primary text-13px outline-none focus:b-brand'
+                    value={editingProfileValue}
+                    onChange={(e) => setEditingProfileValue(e.target.value)}
+                    onBlur={async () => {
+                      if (editingProfileValue.trim() && editingProfileValue !== entry.value) {
+                        await ipcBridge.memory.setProfile.invoke({ category: entry.category, key: entry.key, value: editingProfileValue.trim() });
+                        void loadData();
+                      }
+                      setEditingProfileId(null);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                      if (e.key === 'Escape') setEditingProfileId(null);
+                    }}
+                    autoFocus
+                  />
+                ) : (
+                  <span
+                    className='text-t-secondary flex-1 cursor-pointer hover:text-t-primary'
+                    onClick={() => {
+                      setEditingProfileId(entry.id);
+                      setEditingProfileValue(entry.value);
+                    }}
+                    title='Click to edit'
+                  >
+                    {entry.value}
+                  </span>
+                )}
+                <Tooltip content={`Confidence: ${Math.round(entry.confidence * 100)}%, Evidence: ${entry.evidenceCount} observations`}>
+                  <span className='text-11px text-t-tertiary shrink-0'>{Math.round(entry.confidence * 100)}%</span>
+                </Tooltip>
                 <button className='text-t-tertiary hover:text-red-500 cursor-pointer bg-transparent b-none opacity-0 group-hover:opacity-100 transition-opacity text-12px' onClick={() => handleDeleteProfile(entry.id)} title='Delete this preference'>
                   {'\u00D7'}
                 </button>
@@ -160,7 +275,40 @@ const MemoryModalContent: React.FC = () => {
                         </span>
                       )}
                     </div>
-                    <p className='text-t-secondary m-0 line-clamp-3'>{mem.content}</p>
+                    {editingMemoryId === mem.id ? (
+                      <div className='flex flex-col gap-4px'>
+                        <textarea className='w-full px-8px py-6px rd-4px b-1 b-solid b-color-border-2 bg-bg-1 text-t-primary text-13px outline-none focus:b-brand resize-none placeholder:text-t-tertiary' value={editingMemoryContent} onChange={(e) => setEditingMemoryContent(e.target.value)} rows={3} autoFocus />
+                        <div className='flex gap-6px justify-end'>
+                          <button className='text-11px text-t-secondary cursor-pointer bg-transparent b-none hover:text-t-primary' onClick={() => setEditingMemoryId(null)}>
+                            Cancel
+                          </button>
+                          <button
+                            className='text-11px text-white cursor-pointer px-8px py-2px rd-3px b-none'
+                            style={{ backgroundColor: '#ff6b35' }}
+                            onClick={async () => {
+                              if (!editingMemoryContent.trim()) return;
+                              await ipcBridge.memory.remove.invoke({ memoryId: mem.id });
+                              await ipcBridge.memory.store.invoke({ content: editingMemoryContent.trim(), type: mem.type, workspace: mem.workspace || undefined, tags: mem.tags });
+                              setEditingMemoryId(null);
+                              void loadData();
+                            }}
+                          >
+                            Save
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <p
+                        className='text-t-secondary m-0 line-clamp-3 cursor-pointer hover:text-t-primary'
+                        onClick={() => {
+                          setEditingMemoryId(mem.id);
+                          setEditingMemoryContent(mem.content);
+                        }}
+                        title='Click to edit'
+                      >
+                        {mem.content}
+                      </p>
+                    )}
                   </div>
                   <button className='text-t-tertiary hover:text-red-500 cursor-pointer bg-transparent b-none opacity-0 group-hover:opacity-100 transition-opacity text-14px shrink-0 mt-2px' onClick={() => handleDeleteMemory(mem.id)} title='Delete this memory'>
                     {'\u00D7'}

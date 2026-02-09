@@ -33,13 +33,7 @@ export function initChannelBridge(): void {
       }
 
       const statuses: IChannelPluginStatus[] = result.data.map((plugin) => {
-        // Check credentials based on plugin type
-        let hasToken = false;
-        if (plugin.type === 'lark') {
-          hasToken = !!(plugin.credentials?.appId && plugin.credentials?.appSecret);
-        } else {
-          hasToken = !!plugin.credentials?.token;
-        }
+        const hasToken = !!plugin.credentials?.token;
 
         return {
           id: plugin.id,

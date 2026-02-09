@@ -8,7 +8,7 @@ import { Type } from '@google/genai';
 import type { GeminiClient, ToolResult, ToolInvocation, ToolLocation, ToolCallConfirmationDetails, MessageBus } from '@office-ai/aioncli-core';
 import { BaseDeclarativeTool, BaseToolInvocation, Kind, getErrorMessage, ToolErrorType, getResponseText, DEFAULT_GEMINI_FLASH_MODEL } from '@office-ai/aioncli-core';
 import { convert } from 'html-to-text';
-import { chromium, type Browser } from 'playwright-core';
+import { getOrCreateBrowser, applyStealthScripts } from './browser/browser-session';
 
 const FETCH_TIMEOUT_MS = 15000;
 const PLAYWRIGHT_TIMEOUT_MS = 25000;
@@ -46,62 +46,6 @@ function sanitizeRawContent(text: string): string {
 }
 
 // ---------------------------------------------------------------------------
-// Playwright browser singleton — reused across all fetches for performance
-// ---------------------------------------------------------------------------
-let _browser: Browser | null = null;
-let _browserLaunchPromise: Promise<Browser | null> | null = null;
-let _browserAvailable = true; // Set to false if no system browser found
-
-async function getOrCreateBrowser(): Promise<Browser> {
-  if (!_browserAvailable) throw new Error('No system browser available');
-  if (_browser?.isConnected()) return _browser;
-
-  // Prevent multiple concurrent launch attempts
-  if (_browserLaunchPromise) {
-    const result = await _browserLaunchPromise;
-    if (result) return result;
-    throw new Error('Browser launch failed');
-  }
-
-  _browserLaunchPromise = (async (): Promise<Browser | null> => {
-    // Try system browsers: Edge (pre-installed on Windows), Chrome, Chromium
-    const channels = process.platform === 'win32' ? ['msedge', 'chrome', 'chromium'] : ['chrome', 'chromium'];
-
-    for (const channel of channels) {
-      try {
-        _browser = await chromium.launch({
-          channel,
-          headless: true,
-          args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-blink-features=AutomationControlled'],
-        });
-
-        _browser.on('disconnected', () => {
-          _browser = null;
-          _browserLaunchPromise = null;
-        });
-
-        return _browser;
-      } catch {
-        continue;
-      }
-    }
-
-    // No system browser found — disable Playwright for this session
-    _browserAvailable = false;
-    return null;
-  })();
-
-  try {
-    const result = await _browserLaunchPromise;
-    if (!result) throw new Error('No system browser found (Chrome, Edge, or Chromium required)');
-    return result;
-  } catch (e) {
-    _browserLaunchPromise = null;
-    throw e;
-  }
-}
-
-// ---------------------------------------------------------------------------
 // Strategy 1: Playwright (local browser with stealth — bypasses anti-bot, handles JS)
 // ---------------------------------------------------------------------------
 async function fetchViaPlaywright(url: string, signal: AbortSignal): Promise<string> {
@@ -115,17 +59,7 @@ async function fetchViaPlaywright(url: string, signal: AbortSignal): Promise<str
   });
 
   const page = await context.newPage();
-
-  // Stealth: remove automation markers before any page loads
-  await page.addInitScript(() => {
-    Object.defineProperty(navigator, 'webdriver', { get: () => false });
-    Object.defineProperty(navigator, 'languages', { get: () => ['en-US', 'en'] });
-    // Fake Chrome runtime object (sites check for its presence)
-    (window as any).chrome = { runtime: {}, loadTimes: () => ({}), csi: () => ({}) };
-    // Override permissions.query for notifications
-    const origQuery = window.navigator.permissions.query.bind(window.navigator.permissions);
-    window.navigator.permissions.query = (params: any) => (params.name === 'notifications' ? Promise.resolve({ state: Notification.permission } as PermissionStatus) : origQuery(params));
-  });
+  await applyStealthScripts(page);
 
   // Abort handler — close context if signal fires
   const handleAbort = () => {

@@ -1,8 +1,8 @@
 {
   "name": "Foundry",
   "productName": "Foundry",
-  "version": "1.8.2",
-  "description": "Transform your command-line AI agent into a modern, efficient AI Chat interface.",
+  "version": "2.0.0",
+  "description": "Your AI Development Platform — unified GUI, memory, safety rails, and multi-agent orchestration.",
   "main": ".webpack/main",
   "scripts": {
     "start": "node scripts/start-forge.js",

@@ -414,10 +414,10 @@ class ImageGenerationInvocation extends BaseToolInvocation<ImageGenerationToolPa
       }
 
       const response = await client.models.generateContent({
-        model: this.imageGenNativeModel || 'gemini-2.5-flash-preview-image-generation',
+        model: (this.imageGenNativeModel && !this.imageGenNativeModel.includes('preview-image-generation') ? this.imageGenNativeModel : null) || 'gemini-2.5-flash-image',
         contents: [{ role: 'user', parts }],
         config: {
-          responseModalities: ['IMAGE', 'TEXT'],
+          responseModalities: ['TEXT', 'IMAGE'],
         },
       });
 

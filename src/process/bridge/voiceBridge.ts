@@ -16,14 +16,25 @@
  */
 
 import { voice } from '@/common/ipcBridge';
+import { RateLimiter } from '@/channels/utils/rateLimiter';
 import { voiceService, type VoiceConfig } from '@process/services/voiceService';
+
+const voiceRateLimiter = new RateLimiter({ maxAttempts: 30, windowMs: 60_000 });
 
 export function initVoiceBridge(): void {
   voice.transcribe.provider(async ({ audioPath }) => {
+    const { allowed, retryAfterMs } = voiceRateLimiter.check('voice.transcribe');
+    if (!allowed) {
+      throw new Error(`Rate limited. Try again in ${Math.ceil(retryAfterMs / 1000)}s.`);
+    }
     return voiceService.transcribe(audioPath);
   });
 
   voice.synthesize.provider(async ({ text }) => {
+    const { allowed, retryAfterMs } = voiceRateLimiter.check('voice.synthesize');
+    if (!allowed) {
+      throw new Error(`Rate limited. Try again in ${Math.ceil(retryAfterMs / 1000)}s.`);
+    }
     return voiceService.synthesize(text);
   });
 

@@ -9,7 +9,7 @@ import FoundryScrollArea from '@/renderer/components/base/FoundryScrollArea';
 import { iconColors } from '@/renderer/theme/colors';
 import { isElectronDesktop } from '@/renderer/utils/platform';
 import { Tabs } from '@arco-design/web-react';
-import { Computer, Earth, Fire, Gemini, Info, LinkCloud, Toolkit, Shield, Brain, Lightning, PlugOne } from '@icon-park/react';
+import { Computer, Earth, Fire, Gemini, Info, LinkCloud, Toolkit, Shield, Brain, Lightning, PlugOne, VoiceOne, Communication } from '@icon-park/react';
 import classNames from 'classnames';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -25,7 +25,9 @@ import MemoryModalContent from './contents/MemoryModalContent';
 import SkillStoreModalContent from './contents/SkillStoreModalContent';
 import EmberModalContent from './contents/EmberModalContent';
 import McpStoreModalContent from './contents/McpStoreModalContent';
+import VoiceModalContent from './contents/VoiceModalContent';
 import WebuiModalContent from './contents/WebuiModalContent';
+import ChannelModalContent from './contents/ChannelModalContent';
 import { SettingsViewModeProvider } from './settingsViewContext';
 
 // ==================== Constants ====================
@@ -57,7 +59,7 @@ const RESIZE_DEBOUNCE_DELAY = 150;
 /**
  * Settings tab type
  */
-export type SettingTab = 'gemini' | 'model' | 'agent' | 'tools' | 'image' | 'constitution' | 'memory' | 'ember' | 'skills' | 'mcp' | 'webui' | 'system' | 'about';
+export type SettingTab = 'gemini' | 'model' | 'agent' | 'tools' | 'image' | 'constitution' | 'memory' | 'ember' | 'skills' | 'mcp' | 'voice' | 'webui' | 'channels' | 'system' | 'about';
 
 /**
  * Settings modal component props
@@ -203,14 +205,24 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ visible, onCancel, defaul
         label: t('settings.mcp', 'MCP Store'),
         icon: <PlugOne theme='outline' size='20' fill={iconColors.secondary} />,
       },
+      {
+        key: 'voice',
+        label: t('settings.voice', 'Voice'),
+        icon: <VoiceOne theme='outline' size='20' fill={iconColors.secondary} />,
+      },
     ];
 
-    // Only add WebUI option on desktop (includes Assistant config)
+    // Only add WebUI/Channels on desktop
     if (isDesktop) {
       items.push({
         key: 'webui',
-        label: t('settings.webui'),
+        label: t('settings.remoteAccess', 'Remote Access'),
         icon: <Earth theme='outline' size='20' fill={iconColors.secondary} />,
+      });
+      items.push({
+        key: 'channels',
+        label: t('settings.channels', 'Channels'),
+        icon: <Communication theme='outline' size='20' fill={iconColors.secondary} />,
       });
     }
 
@@ -252,8 +264,12 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ visible, onCancel, defaul
         return <SkillStoreModalContent />;
       case 'mcp':
         return <McpStoreModalContent />;
+      case 'voice':
+        return <VoiceModalContent />;
       case 'webui':
         return <WebuiModalContent />;
+      case 'channels':
+        return <ChannelModalContent />;
       case 'system':
         return <SystemModalContent onRequestClose={onCancel} />;
       case 'about':

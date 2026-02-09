@@ -6,34 +6,13 @@
 
 /**
  * SendBoxSettingsPopover — Gear icon popover in the SendBox toolbar.
- * Shows quick toggles for Subagents, MCPs, and Project Settings link.
- * Inspired by MiniMax Agent's settings menu.
+ * Shows MCP server status and quick links to settings.
+ * Self-contained: loads MCP data via useMcpServers hook.
  */
 
 import React, { useState, useCallback, useRef, useEffect } from 'react';
-
-type SubagentItem = {
-  key: string;
-  label: string;
-  enabled: boolean;
-};
-
-type McpItem = {
-  key: string;
-  label: string;
-  icon?: string;
-  enabled: boolean;
-};
-
-type SendBoxSettingsPopoverProps = {
-  subagents?: SubagentItem[];
-  mcps?: McpItem[];
-  onSubagentToggle?: (key: string, enabled: boolean) => void;
-  onMcpToggle?: (key: string, enabled: boolean) => void;
-  onManageSubagents?: () => void;
-  onManageMcps?: () => void;
-  onProjectSettings?: () => void;
-};
+import { useNavigate } from 'react-router-dom';
+import { useMcpServers } from '@/renderer/hooks/mcp/useMcpServers';
 
 // Simple toggle switch component
 const ToggleSwitch: React.FC<{ enabled: boolean; onChange: (enabled: boolean) => void }> = ({ enabled, onChange }) => (
@@ -60,12 +39,14 @@ const ToggleSwitch: React.FC<{ enabled: boolean; onChange: (enabled: boolean) =>
   </button>
 );
 
-type MenuView = 'main' | 'subagents' | 'mcps';
+type MenuView = 'main' | 'mcps';
 
-const SendBoxSettingsPopover: React.FC<SendBoxSettingsPopoverProps> = ({ subagents = [], mcps = [], onSubagentToggle, onMcpToggle, onManageSubagents, onManageMcps, onProjectSettings }) => {
+const SendBoxSettingsPopover: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [view, setView] = useState<MenuView>('main');
   const popoverRef = useRef<HTMLDivElement>(null);
+  const navigate = useNavigate();
+  const { mcpServers, saveMcpServers } = useMcpServers();
 
   // Close on click outside
   useEffect(() => {
@@ -103,6 +84,13 @@ const SendBoxSettingsPopover: React.FC<SendBoxSettingsPopoverProps> = ({ subagen
     });
   }, []);
 
+  const handleMcpToggle = useCallback(
+    (serverName: string, enabled: boolean) => {
+      void saveMcpServers((prev) => prev.map((s) => (s.name === serverName ? { ...s, enabled } : s)));
+    },
+    [saveMcpServers]
+  );
+
   const menuItemStyle: React.CSSProperties = {
     display: 'flex',
     alignItems: 'center',
@@ -120,61 +108,44 @@ const SendBoxSettingsPopover: React.FC<SendBoxSettingsPopoverProps> = ({ subagen
     transition: 'background-color 0.1s',
   };
 
+  const enabledCount = mcpServers.filter((s) => s.enabled !== false).length;
+
   const renderMainMenu = () => (
     <div className='flex flex-col gap-2px p-6px'>
-      <button style={menuItemStyle} onClick={() => setView('subagents')} onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--bg-2)')} onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}>
-        <span className='text-16px'>{'\u2699\uFE0F'}</span>
-        <span className='flex-1'>Subagent</span>
-        <span className='text-16px opacity-40'>{'\u203A'}</span>
-      </button>
       <button style={menuItemStyle} onClick={() => setView('mcps')} onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--bg-2)')} onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}>
         <span className='text-16px'>{'\u{1F50C}'}</span>
-        <span className='flex-1'>MCP</span>
+        <span className='flex-1'>MCP Servers</span>
+        {mcpServers.length > 0 && (
+          <span className='text-11px text-t-tertiary'>
+            {enabledCount}/{mcpServers.length}
+          </span>
+        )}
         <span className='text-16px opacity-40'>{'\u203A'}</span>
       </button>
       <button
         style={menuItemStyle}
         onClick={() => {
-          onProjectSettings?.();
+          void navigate('/settings/tools');
           setIsOpen(false);
         }}
         onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--bg-2)')}
         onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
       >
         <span className='text-16px'>{'\u2699'}</span>
-        <span className='flex-1'>Project Settings</span>
+        <span className='flex-1'>Tool Settings</span>
       </button>
-    </div>
-  );
-
-  const renderSubagentMenu = () => (
-    <div className='flex flex-col gap-2px p-6px'>
-      <button style={{ ...menuItemStyle, padding: '8px 14px' }} onClick={() => setView('main')} onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--bg-2)')} onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}>
-        <span className='text-14px'>{'\u2039'}</span>
+      <button
+        style={menuItemStyle}
+        onClick={() => {
+          void navigate('/settings/agent');
+          setIsOpen(false);
+        }}
+        onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--bg-2)')}
+        onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+      >
+        <span className='text-16px'>{'\u{1F916}'}</span>
+        <span className='flex-1'>Assistants</span>
       </button>
-      <div className='px-14px py-4px text-11px font-600 text-t-tertiary uppercase tracking-wider'>Built-In</div>
-      {subagents.length === 0 && <div className='px-14px py-8px text-12px text-t-tertiary'>No subagents configured</div>}
-      {subagents.map((agent) => (
-        <div key={agent.key} className='flex items-center justify-between px-14px py-8px'>
-          <span className='text-13px font-500' style={{ color: 'var(--text-primary)' }}>
-            {agent.label}
-          </span>
-          <ToggleSwitch enabled={agent.enabled} onChange={(enabled) => onSubagentToggle?.(agent.key, enabled)} />
-        </div>
-      ))}
-      <div className='b-t-1 b-solid b-border-2 mt-4px pt-4px'>
-        <button
-          style={{ ...menuItemStyle, color: 'var(--text-secondary)' }}
-          onClick={() => {
-            onManageSubagents?.();
-            setIsOpen(false);
-          }}
-          onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--bg-2)')}
-          onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
-        >
-          Manage Subagents
-        </button>
-      </div>
     </div>
   );
 
@@ -182,30 +153,41 @@ const SendBoxSettingsPopover: React.FC<SendBoxSettingsPopoverProps> = ({ subagen
     <div className='flex flex-col gap-2px p-6px'>
       <button style={{ ...menuItemStyle, padding: '8px 14px' }} onClick={() => setView('main')} onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--bg-2)')} onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}>
         <span className='text-14px'>{'\u2039'}</span>
+        <span className='text-13px font-500'>MCP Servers</span>
       </button>
-      {mcps.length === 0 && <div className='px-14px py-8px text-12px text-t-tertiary'>No MCPs connected</div>}
-      {mcps.map((mcp) => (
-        <div key={mcp.key} className='flex items-center justify-between px-14px py-8px'>
-          <div className='flex items-center gap-8px'>
-            {mcp.icon && <span className='text-14px'>{mcp.icon}</span>}
-            <span className='text-13px font-500' style={{ color: 'var(--text-primary)' }}>
-              {mcp.label}
-            </span>
-          </div>
-          <ToggleSwitch enabled={mcp.enabled} onChange={(enabled) => onMcpToggle?.(mcp.key, enabled)} />
+      {mcpServers.length === 0 && (
+        <div className='px-14px py-8px text-12px text-t-tertiary'>
+          No MCP servers configured.{' '}
+          <span
+            className='text-[rgb(var(--primary-6))] cursor-pointer'
+            onClick={() => {
+              void navigate('/settings/tools');
+              setIsOpen(false);
+            }}
+          >
+            Add one
+          </span>
+        </div>
+      )}
+      {mcpServers.map((server) => (
+        <div key={server.name} className='flex items-center justify-between px-14px py-8px'>
+          <span className='text-13px font-500 truncate max-w-140px' style={{ color: 'var(--text-primary)' }} title={server.name}>
+            {server.name}
+          </span>
+          <ToggleSwitch enabled={server.enabled !== false} onChange={(enabled) => handleMcpToggle(server.name, enabled)} />
         </div>
       ))}
       <div className='b-t-1 b-solid b-border-2 mt-4px pt-4px'>
         <button
           style={{ ...menuItemStyle, color: 'var(--text-secondary)' }}
           onClick={() => {
-            onManageMcps?.();
+            void navigate('/settings/tools');
             setIsOpen(false);
           }}
           onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--bg-2)')}
           onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
         >
-          Manage MCP
+          Manage MCP Servers
         </button>
       </div>
     </div>
@@ -256,7 +238,6 @@ const SendBoxSettingsPopover: React.FC<SendBoxSettingsPopoverProps> = ({ subagen
           }}
         >
           {view === 'main' && renderMainMenu()}
-          {view === 'subagents' && renderSubagentMenu()}
           {view === 'mcps' && renderMcpMenu()}
         </div>
       )}

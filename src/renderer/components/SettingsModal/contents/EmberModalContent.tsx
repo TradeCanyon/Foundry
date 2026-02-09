@@ -12,7 +12,7 @@
  */
 
 import { ember, type IEmberActivity, type IEmberConfig } from '@/common/ipcBridge';
-import { Input, Radio, Switch } from '@arco-design/web-react';
+import { Input, Radio, Select, Switch, Tooltip } from '@arco-design/web-react';
 import React, { useCallback, useEffect, useState } from 'react';
 
 const PERSONALITIES = [
@@ -24,9 +24,16 @@ const PERSONALITIES = [
 ] as const;
 
 const AUTONOMY_LEVELS = [
-  { id: 'guided', name: 'Guided', desc: 'Always confirms before acting' },
-  { id: 'balanced', name: 'Balanced', desc: 'Handles routine tasks autonomously' },
-  { id: 'free_reign', name: 'Free Reign', desc: 'Acts proactively with minimal confirmation' },
+  { id: 'guided', name: 'Guided', desc: 'Always confirms before acting', tooltip: 'Ember asks before taking any action' },
+  { id: 'balanced', name: 'Balanced', desc: 'Handles routine tasks autonomously', tooltip: 'Ember handles routine tasks, asks for important ones' },
+  { id: 'free_reign', name: 'Free Reign', desc: 'Acts proactively with minimal confirmation', tooltip: 'Ember acts autonomously on all tasks' },
+] as const;
+
+const EMBER_MODELS = [
+  { label: 'Gemini 2.0 Flash', value: 'gemini-2.0-flash' },
+  { label: 'Gemini 2.0 Flash Lite', value: 'gemini-2.0-flash-lite' },
+  { label: 'Gemini 2.5 Flash', value: 'gemini-2.5-flash-preview-04-17' },
+  { label: 'Gemini 1.5 Flash', value: 'gemini-1.5-flash' },
 ] as const;
 
 const EmberModalContent: React.FC = () => {
@@ -97,14 +104,31 @@ const EmberModalContent: React.FC = () => {
         </div>
       )}
 
+      {/* Model */}
+      <div>
+        <div className='text-14px font-medium text-t-primary mb-8px'>Model</div>
+        <Select value={config.model || 'gemini-2.0-flash'} onChange={(val: string) => updateConfig({ model: val })} style={{ width: '100%' }}>
+          {EMBER_MODELS.map((m) => (
+            <Select.Option key={m.value} value={m.value}>
+              {m.label}
+            </Select.Option>
+          ))}
+        </Select>
+        <div className='text-12px text-t-tertiary mt-4px'>The Gemini model used for Ember's brain</div>
+      </div>
+
       {/* Autonomy Level */}
       <div>
         <div className='text-14px font-medium text-t-primary mb-8px'>Autonomy Level</div>
         <Radio.Group value={config.autonomy} onChange={(val: string) => updateConfig({ autonomy: val })} direction='vertical' className='w-full'>
           {AUTONOMY_LEVELS.map((a) => (
             <Radio key={a.id} value={a.id} className='!mb-8px'>
-              <span className='text-14px text-t-primary'>{a.name}</span>
-              <span className='text-12px text-t-secondary ml-8px'>{a.desc}</span>
+              <Tooltip content={a.tooltip} position='right'>
+                <span>
+                  <span className='text-14px text-t-primary'>{a.name}</span>
+                  <span className='text-12px text-t-secondary ml-8px'>{a.desc}</span>
+                </span>
+              </Tooltip>
             </Radio>
           ))}
         </Radio.Group>

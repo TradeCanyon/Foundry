@@ -4,6 +4,16 @@
 
 ---
 
+## 2026-02-09 — DB column names: always verify against actual schema
+
+**Trigger:** `searchConversations` query used `modify_time`/`create_time` which don't exist — actual columns are `updated_at`/`created_at`. Crashed Ctrl+K search with `SqliteError`.
+**Pattern:** When writing SQL queries, verify column names against the actual migration/schema. Don't assume naming conventions — check `rowToConversation()` or the migration file.
+
+## 2026-02-09 — IPC types are the source of truth for renderer code
+
+**Trigger:** Used `voice.synthesize.invoke({ text, voice })` but IPC type only accepts `{ text: string }`. Used `result.filePath` but type has `audioPath`. Used `ipcBridge.fs.copyFile` and `removeSkill` which don't exist.
+**Pattern:** Always check `ipcBridge.ts` for exact IPC signatures before using them in renderer code. The IPC bridge types define exactly what parameters are accepted and what's returned.
+
 ## 2026-02-08 — Worker hot-reload doesn't exist
 
 **Trigger:** Code changes in `web-fetch.ts` and `web-search.ts` had no effect until full app restart.
@@ -21,8 +31,8 @@
 
 ## 2026-02-08 — Wrong Gemini image model names
 
-**Trigger:** Used `gemini-2.5-flash-image-preview` (invalid). Correct: `gemini-2.5-flash-preview-image-generation`.
-**Pattern:** Always verify model names against official API docs. Model naming conventions are inconsistent across providers.
+**Trigger:** Used `gemini-2.5-flash-image-preview` then `gemini-2.5-flash-preview-image-generation` (both invalid, return 500). Correct: `gemini-2.5-flash-image`.
+**Pattern:** Always verify model names against official API docs. Model naming conventions are inconsistent across providers. Google's image gen model naming differs from their chat models.
 
 ## 2026-02-08 — OpenAI image models need Images API, not chat completions
 
@@ -82,6 +92,21 @@
 
 **Trigger:** WhatsApp plugin called `void this.onStart()` recursively on connection close with no backoff, no retry limit. A failing connection would loop indefinitely.
 **Pattern:** All channel reconnection logic needs: (1) exponential backoff, (2) max attempt limit, (3) reset counter on successful connect, (4) set error status when exhausted.
+
+## 2026-02-09 — "Build Service, Defer Wiring" is a trap
+
+**Trigger:** Full product audit revealed ~40% of features are unreachable from UI. Ember has a complete backend but no button to create a conversation. Channel adapters have backends but no config forms (except Telegram). SendBoxSettingsPopover and ModelModeSelector look real but do nothing.
+**Pattern:** Every session must end with a USER PATH verification: "How does a user actually access this feature?" If there's no answer, it's not done. A service without a UI entry point is not a shipped feature. A settings tab is not an entry point — it configures a feature, it doesn't provide access. Placeholder UIs that look real but do nothing are WORSE than nothing — they erode trust.
+
+## 2026-02-09 — Removing a plugin type from union causes cascade errors
+
+**Trigger:** Removed `'lark'` from `PluginType` union and Lark-specific fields (`appId`, `appSecret`) from `IPluginCredentials`. Signal and Slack plugins were reusing `appId` for their own credentials (Signal API base URL, Slack app-level token).
+**Pattern:** Before removing shared type fields, grep for ALL usages across the codebase — not just the plugin being removed. Other plugins may have repurposed fields. When in doubt, keep generic fields like `appId` with updated comments.
+
+## 2026-02-09 — TypeScript interfaces don't have implicit index signatures
+
+**Trigger:** Changed `encryptCredentials` to accept `Record<string, string | undefined>`. TS error: `IPluginCredentials` not assignable — interfaces lack index signatures.
+**Pattern:** Use generics with `<T extends object>` instead of `Record<string, ...>` when the function needs to accept both interfaces and record types. This preserves type inference while being permissive enough for interfaces.
 
 ## 2026-02-08 — IPC type narrowing: string vs literal union
 

@@ -1,6 +1,6 @@
 # Foundry — Active Tasks
 
-> Updated: 2026-02-08 (Session 5)
+> Updated: 2026-02-09 (Session 11)
 > Full roadmap: `BATTLEPLAN.md` | Vision: `.foundry/VISION.md`
 
 ---
@@ -51,7 +51,7 @@
 ### Phase 6: Editing Suite ✓ (Session 7)
 
 - [x] **6.1** `FoundryDocEditor.tsx` — TipTap WYSIWYG editor with toolbar (headings, bold/italic/strike, lists, blockquote, code blocks). Exported from editors/index.ts
-- [ ] **6.2** Wire into PreviewPanel as MarkdownEditor replacement (deferred — needs scroll sync adapter)
+- [x] **6.2** Wire into PreviewPanel as WYSIWYG "Edit" tab — TipTap ↔ markdown via marked + turndown (Session 9)
 
 ### Phase 7: Skill Store ✓ (Session 7)
 
@@ -84,7 +84,7 @@
 - [x] **10.3** `VoiceModeButton.tsx` — MediaRecorder capture, 3-state UI, duration timer
 - [x] **10.4** IPC types in ipcBridge.ts
 - [ ] **10.F** ElevenLabs TTS provider (deferred — OpenAI TTS works now)
-- [ ] **10.F** Voice settings in SettingsModal (deferred)
+- [x] **10.F** Voice settings in SettingsModal — `VoiceModalContent.tsx` ✓ (Session 10)
 
 ### Phase 11: Channels ✓ (Session 8)
 
@@ -93,7 +93,7 @@
 - [x] **11.3** Slack — SlackPlugin.ts + SlackAdapter.ts (@slack/bolt)
 - [x] **11.4** Signal — SignalPlugin.ts + SignalAdapter.ts (signal-cli-rest-api)
 - [x] **11.5** ChannelManager.ts — all 4 plugins registered
-- [ ] **11.F** Remove Lark channel (deferred — needs careful extraction)
+- [x] **11.F** Remove Lark channel — deleted 5 files, updated 7 dependent files ✓ (Session 10)
 
 ### Security Audit ✓ (Session 8)
 
@@ -102,12 +102,94 @@
 - [x] **SA.3** WhatsApp auth path hardened (resolved to app data dir)
 - [x] **SA.4** Ember input length validation (10K char limit at bridge)
 - [x] **SA.5** WhatsApp reconnect loop guarded (backoff + max 5 attempts)
-- [ ] **SA.F** Extend encryptCredentials to cover all sensitive fields (not just token)
-- [ ] **SA.F** Rate limiting on Ember/Voice API calls (reuse RateLimiter)
+- [x] **SA.F** Extend encryptCredentials to cover all sensitive fields — generic `<T extends object>` ✓ (Session 10)
+- [x] **SA.F** Rate limiting on Ember/Voice API calls — 30 req/min via RateLimiter ✓ (Session 10)
 
-### Phase 12+ (Not Started)
+### Phase 12: Browser Agent ✓ (Session 10)
 
-See `BATTLEPLAN.md` for Phase 12 (Browser Agent)
+- [x] **12.1** `browser-session.ts` — Playwright singleton extracted from web-fetch.ts + BrowserSessionManager (persistent sessions per conversation, 30-min idle cleanup)
+- [x] **12.2** `browser-navigate.ts` — Navigate to URL + auto-screenshot feedback to LLM
+- [x] **12.3** `browser-screenshot.ts` — Capture page as PNG, inline image data
+- [x] **12.4** `browser-extract.ts` — Extract text from page or CSS selector (100K char max)
+- [x] **12.5** `browser-click.ts` — Click element with confirmation + post-click screenshot
+- [x] **12.6** `browser-fill.ts` — Fill form field with confirmation + post-fill screenshot
+- [x] **12.7** `browser-wait.ts` — Wait for selector/navigation/load events
+- [x] **12.8** Registration in `conversation-tool-config.ts` + `useBrowserAgent` flag
+- [x] **12.9** Browser category in `MessageToolGroupSummary.tsx`
+
+### Deferred Items (1.2)
+
+- [x] **1.2** `StubStream.tsx` — animated skeleton placeholder for active code generation ✓ (Session 10)
+
+### Product Audit Fixes ✓ (Session 10)
+
+- [x] **A.1** SendBoxSettingsPopover — rewired to be self-contained with real MCP data + navigate links
+- [x] **A.2** ModelModeSelector — removed (was hardcoded placeholder, Gemini has its own selector)
+- [x] **A.3** Ember conversation creation — added to guid page agent selector + IPC + ConversationService
+- [x] **A.4** Channel config forms — replaced "coming soon" placeholders with real GenericChannelConfigForm (Discord, Slack, WhatsApp, Signal)
+- [x] **A.5** File download button — added to StubCard.tsx + Markdown.tsx code blocks
+- [x] **A.6** StubStream wiring — shown in ThinkingFooter during code-related tool execution
+- [x] **A.7** "New Image" sidebar flow — sidebar button, agent selector pill, ChatConversation.tsx routing activated
+
+### Product Polish Sprint ✓ (Session 11)
+
+- [x] **PP.0** Critical: Fix `searchConversations` — `modify_time`/`create_time` → `updated_at`/`created_at` + `rowToConversation()` (databaseBridge.ts)
+- [x] **PP.A1** Ember auto-select from sidebar nav state (guid/index.tsx)
+- [x] **PP.A2** Show 10 recent conversations by default (SidebarRecentsSection.tsx)
+- [x] **PP.A3** Remove Schedule from sidebar nav (SidebarNav.tsx)
+- [x] **PP.B1** Wider project cards with left accent border (ProjectsPage.tsx, ProjectCard.tsx)
+- [x] **PP.B2** ProjectDetailPage two-column layout — left: description+conversations, right: Instructions/Files/Activity cards
+- [x] **PP.C1** Channels breakout — own Settings page + step-by-step setup guides (Discord, Slack, WhatsApp, Signal)
+- [x] **PP.C1** Renamed WebUI → Remote Access
+- [x] **PP.C2** About page redesign — tagline, tech badges, removed old contact info
+- [x] **PP.C2** Version bump `1.8.2` → `2.0.0`
+- [x] **PP.C3** Ember model selector — configurable Gemini Flash model + autonomy tooltips
+- [x] **PP.C4** Voice preview button — synthesize + play sample audio
+- [x] **PP.C5** Memory improvements — Add Memory form (fact/preference/decision), inline profile editing, tooltips
+- [x] **PP.C6** Constitution — search/filter on principles, source indicator (Default vs Custom)
+- [x] **PP.C7** Tooltips across settings — Voice providers, Ember autonomy, Memory stats/types
+- [x] **PP.D1** Skills Store — expandable detail view, custom skill delete, URL import
+- [x] **PP.D2** MCP Store — expanded catalog (24 → 36 servers: Google Workspace, Calendar, Gmail, Sheets, Todoist, Jira, Obsidian, Vercel, AWS, Perplexity, Dropbox)
+- [x] **PP.BF1** Fix Channels navigation — missing `/settings/channels` route (new ChannelsSettings.tsx page)
+- [x] **PP.BF2** Fix memory textarea placeholder color (white-on-white → `placeholder:text-t-tertiary`)
+- [x] **PP.BF3** Add memory editing — click content → inline textarea → delete+re-store
+
+---
+
+## Upcoming: Skills Marathon (Session 12)
+
+Dedicated session to build out the Foundry skill ecosystem. Target: 100+ production-quality skills.
+
+### Research Phase
+
+- [ ] **SM.1** Audit community skill catalogs (OpenClaw 2,999 skills, SkillCreatorAI, awesome-lists)
+- [ ] **SM.2** Identify top 100 skill domains across: Development, DevOps, Data Science, Design, Writing, Marketing, Legal, Finance, Education, Operations, Product, Creative, Security, Research, HR, Sales, Support
+- [ ] **SM.3** Define quality bar — each skill must have: clear rules, structured output format, edge case handling, security audit pass
+
+### Generation Phase
+
+- [ ] **SM.4** Generate skills in batches of 10-15 per domain using best-in-class examples as seeds
+- [ ] **SM.5** Each skill gets: SKILL.md (YAML frontmatter + markdown body), detailed rules, example prompts, audit results
+- [ ] **SM.6** Cross-reference with existing community skills — consolidate and enhance rather than duplicate
+
+### Import & Enhance Feature
+
+- [ ] **SM.7** "Import and Enhance" flow — fetch external skill → security audit → LLM refinement → polished output
+- [ ] **SM.8** Skill builder UI — guided wizard to create skills from scratch (powered by configurable model)
+- [ ] **SM.9** Skill quality scoring — automated rating based on rule clarity, coverage, security audit results
+
+### Infrastructure
+
+- [ ] **SM.10** Skill versioning — track skill updates, allow rollback
+- [ ] **SM.11** Skill dependencies — skills that reference or extend other skills
+- [ ] **SM.12** Community sharing — export skill as shareable URL/package
+
+### MCP Store Expansion (Bonus)
+
+- [ ] **SM.13** Research `taylorwilsdon/google_workspace_mcp` + other high-quality community MCP servers
+- [ ] **SM.14** Add security filtering for MCP imports (similar to skill audit pipeline)
+- [ ] **SM.15** Embedded Google Workspace MCP as default-available connector
+- [ ] **SM.16** Dropbox MCP connector with proper OAuth flow
 
 ---
 
@@ -126,7 +208,7 @@ See `BATTLEPLAN.md` for Phase 12 (Browser Agent)
 ### Phase 1: Stubs + UX Polish ✓ (Session 4)
 
 - [x] **1.1** StubCard.tsx + code block thresholds in Markdown.tsx (<20 inline, 20-50 collapsed, 50+ StubCard)
-- [ ] **1.2** StubStream.tsx — live creation view (deferred — needs message streaming status integration)
+- [x] **1.2** StubStream.tsx — animated skeleton placeholder for active code generation ✓ (Session 10)
 - [x] **1.3** ConversationContextMenu.tsx — three-dot dropdown (rename, export, delete)
 - [x] **1.4** ConversationSearch.tsx — sidebar search with debounce + Ctrl+K shortcut
 
@@ -151,7 +233,7 @@ See `BATTLEPLAN.md` for Phase 12 (Browser Agent)
 - [x] Clean Slate theme (neutral grays + #ff6b35 orange)
 - [x] User/AI message distinction, file preview tooltips, confidence badges
 - [x] Keyboard shortcuts, throughput indicator, collapsible tool summaries
-- [x] Image generation backend (imageGenerationService.ts) — shelved from UI, backend complete
+- [x] Image generation backend (imageGenerationService.ts) — fully wired: sidebar "New Image" button, agent selector pill, ChatConversation routing, ImageChat UI
 - [x] Channels Phase 1 — Telegram + Lark (Lark to be removed)
 - [x] Image gen bug fixes (7 items, 2026-02-08)
 

@@ -72,6 +72,7 @@ export interface EmberConfig {
   autonomy: AutonomyLevel;
   customPrompt?: string;
   enabled: boolean;
+  model?: string;
 }
 
 // ============================================================
@@ -118,6 +119,7 @@ class EmberService {
     personality: 'bubbly',
     autonomy: 'balanced',
     enabled: true,
+    model: 'gemini-2.0-flash',
   };
   private conversationHistory: Array<{ role: 'user' | 'model'; text: string }> = [];
   private maxHistory = 20;
@@ -130,6 +132,10 @@ class EmberService {
 
   setConfig(updates: Partial<EmberConfig>): void {
     Object.assign(this.config, updates);
+  }
+
+  private getModelName(): string {
+    return this.config.model || 'gemini-2.0-flash';
   }
 
   // ---- Intent Classification ----
@@ -149,7 +155,7 @@ class EmberService {
       const client = new GoogleGenAI({ apiKey });
       const response = await Promise.race([
         client.models.generateContent({
-          model: 'gemini-2.0-flash',
+          model: this.getModelName(),
           contents: [
             {
               role: 'user',
@@ -272,7 +278,7 @@ Category:`,
       const client = new GoogleGenAI({ apiKey });
       const response = await Promise.race([
         client.models.generateContent({
-          model: 'gemini-2.0-flash',
+          model: this.getModelName(),
           contents: messages,
           config: { maxOutputTokens: 2000, temperature: 0.7 },
         }),
@@ -311,7 +317,7 @@ Category:`,
         try {
           const client = new GoogleGenAI({ apiKey });
           const resp = await client.models.generateContent({
-            model: 'gemini-2.0-flash',
+            model: this.getModelName(),
             contents: [{ role: 'user', parts: [{ text: `The user asked: "${input}"\n\nHere are relevant memories:\n${memoryText}\n\nSynthesize a clear, conversational answer from these memories. Be specific and helpful.` }] }],
             config: { maxOutputTokens: 500, temperature: 0.3 },
           });

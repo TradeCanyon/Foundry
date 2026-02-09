@@ -21,7 +21,6 @@ import HorizontalFileList from '@/renderer/components/HorizontalFileList';
 import { usePreviewContext } from '@/renderer/pages/conversation/preview';
 import { useLatestRef } from '@/renderer/hooks/useLatestRef';
 import { useAutoTitle } from '@/renderer/hooks/useAutoTitle';
-import ModelModeSelector, { type ModelMode } from '@/renderer/components/ModelModeSelector';
 import SendBoxSettingsPopover from '@/renderer/components/SendBoxSettingsPopover';
 import VoiceModeButton from '@/renderer/components/VoiceModeButton';
 
@@ -39,15 +38,8 @@ const useCodexSendBoxDraft = getSendBoxDraftHook('codex', {
   uploadFile: [],
 });
 
-const defaultSubagents = [
-  { key: 'cowork', label: 'CoWork', enabled: true },
-  { key: 'researcher', label: 'Researcher', enabled: false },
-  { key: 'report-writer', label: 'Report Writer', enabled: false },
-];
-
 const CodexSendBox: React.FC<{ conversation_id: string }> = ({ conversation_id }) => {
   const [workspacePath, setWorkspacePath] = useState('');
-  const [modelMode, setModelMode] = useState<ModelMode>('auto');
   const { t } = useTranslation();
   const { checkAndUpdateTitle } = useAutoTitle();
   const addOrUpdateMessage = useAddOrUpdateMessage();
@@ -431,13 +423,8 @@ const CodexSendBox: React.FC<{ conversation_id: string }> = ({ conversation_id }
                 });
               }}
             />
-            <SendBoxSettingsPopover subagents={defaultSubagents} mcps={[]} />
+            <SendBoxSettingsPopover />
             <VoiceModeButton />
-          </div>
-        }
-        sendButtonPrefix={
-          <div className='flex items-center gap-6px'>
-            <ModelModeSelector mode={modelMode} onModeChange={setModelMode} />
           </div>
         }
         prefix={

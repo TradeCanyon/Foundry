@@ -6,12 +6,13 @@
 
 /**
  * ProjectWizard — Modal wizard for creating new Foundry projects.
- * Steps: Name/Description → Type + Workspace → Goals → Review & Create
+ * Steps: Name/Instructions → Type + Workspace → Goals → Review & Create
  */
 
 import { ipcBridge } from '@/common';
 import React, { useState, useCallback } from 'react';
 import { Message } from '@arco-design/web-react';
+import { useNavigate } from 'react-router-dom';
 
 const PROJECT_TYPES = [
   { key: 'software', label: 'Software', icon: '\u{1F4BB}', description: 'Apps, APIs, CLI tools' },
@@ -31,7 +32,7 @@ type ProjectWizardProps = {
   onCreated?: (workspace: string) => void;
 };
 
-type WizardStep = 'basics' | 'type' | 'goals' | 'review';
+type WizardStep = 'basics' | 'type' | 'goals' | 'review' | 'done';
 
 const ProjectWizard: React.FC<ProjectWizardProps> = ({ visible, onClose, onCreated }) => {
   const [step, setStep] = useState<WizardStep>('basics');
@@ -40,7 +41,10 @@ const ProjectWizard: React.FC<ProjectWizardProps> = ({ visible, onClose, onCreat
   const [projectType, setProjectType] = useState('software');
   const [workspace, setWorkspace] = useState('');
   const [goals, setGoals] = useState<string[]>(['']);
+  const [referenceFiles, setReferenceFiles] = useState<string[]>([]);
   const [creating, setCreating] = useState(false);
+  const [createdWorkspace, setCreatedWorkspace] = useState('');
+  const navigate = useNavigate();
 
   const reset = useCallback(() => {
     setStep('basics');
@@ -49,7 +53,9 @@ const ProjectWizard: React.FC<ProjectWizardProps> = ({ visible, onClose, onCreat
     setProjectType('software');
     setWorkspace('');
     setGoals(['']);
+    setReferenceFiles([]);
     setCreating(false);
+    setCreatedWorkspace('');
   }, []);
 
   const handleClose = useCallback(() => {
@@ -86,6 +92,20 @@ const ProjectWizard: React.FC<ProjectWizardProps> = ({ visible, onClose, onCreat
     [goals]
   );
 
+  const handleAddReferenceFiles = useCallback(async () => {
+    const result = await ipcBridge.dialog.showOpen.invoke({ properties: ['openFile', 'multiSelections'] });
+    if (result && result.length > 0) {
+      setReferenceFiles((prev) => [...prev, ...result.filter((f) => !prev.includes(f))]);
+    }
+  }, []);
+
+  const handleRemoveReferenceFile = useCallback(
+    (path: string) => {
+      setReferenceFiles(referenceFiles.filter((f) => f !== path));
+    },
+    [referenceFiles]
+  );
+
   const handleCreate = useCallback(async () => {
     if (!name.trim() || !workspace) return;
 
@@ -100,9 +120,23 @@ const ProjectWizard: React.FC<ProjectWizardProps> = ({ visible, onClose, onCreat
       });
 
       if (result.success) {
+        // Copy reference files if any
+        if (referenceFiles.length > 0) {
+          try {
+            await ipcBridge.fs.copyFilesToWorkspace.invoke({
+              filePaths: referenceFiles,
+              workspace: `${workspace}/.foundry`,
+            });
+          } catch {
+            // Non-fatal — project was created, just files didn't copy
+            console.warn('Some reference files failed to copy');
+          }
+        }
+
         Message.success(`Project "${name.trim()}" created`);
+        setCreatedWorkspace(workspace);
+        setStep('done');
         onCreated?.(workspace);
-        handleClose();
       } else {
         Message.error(result.msg || 'Failed to create project');
       }
@@ -111,7 +145,7 @@ const ProjectWizard: React.FC<ProjectWizardProps> = ({ visible, onClose, onCreat
     } finally {
       setCreating(false);
     }
-  }, [name, description, projectType, workspace, goals, onCreated, handleClose]);
+  }, [name, description, projectType, workspace, goals, referenceFiles, onCreated]);
 
   if (!visible) return null;
 
@@ -159,10 +193,13 @@ const ProjectWizard: React.FC<ProjectWizardProps> = ({ visible, onClose, onCreat
         <input style={inputStyle} placeholder='My awesome project' value={name} onChange={(e) => setName(e.target.value)} autoFocus onKeyDown={(e) => e.key === 'Enter' && canProceedBasics && setStep('type')} />
       </div>
       <div>
-        <label className='block text-13px font-500 mb-6px' style={{ color: 'var(--text-secondary)' }}>
-          Description
+        <label className='block text-13px font-500 mb-4px' style={{ color: 'var(--text-secondary)' }}>
+          Project Instructions
         </label>
-        <textarea style={{ ...inputStyle, minHeight: '80px', resize: 'vertical', fontFamily: 'inherit' }} placeholder='A brief description of your project' value={description} onChange={(e) => setDescription(e.target.value)} rows={3} />
+        <div className='text-11px mb-6px' style={{ color: 'var(--text-tertiary)' }}>
+          These instructions will be given to every AI agent working in this project. Describe goals, constraints, coding standards, etc.
+        </div>
+        <textarea style={{ ...inputStyle, minHeight: '80px', resize: 'vertical', fontFamily: 'inherit' }} placeholder='e.g., "Use TypeScript strict mode. Follow REST conventions. Write tests for new features."' value={description} onChange={(e) => setDescription(e.target.value)} rows={3} />
       </div>
       <div className='flex justify-end gap-8px mt-8px'>
         <button style={buttonSecondary} onClick={handleClose}>
@@ -215,6 +252,30 @@ const ProjectWizard: React.FC<ProjectWizardProps> = ({ visible, onClose, onCreat
           </button>
         </div>
       </div>
+
+      {/* Reference Materials */}
+      <div>
+        <label className='block text-13px font-500 mb-4px' style={{ color: 'var(--text-secondary)' }}>
+          Reference Materials (optional)
+        </label>
+        <div className='text-11px mb-6px' style={{ color: 'var(--text-tertiary)' }}>
+          Upload design docs, specs, or other files agents should reference. Files will be copied to the .foundry/ directory.
+        </div>
+        <div className='flex flex-wrap gap-6px mb-6px'>
+          {referenceFiles.map((path) => (
+            <div key={path} className='flex items-center gap-4px px-8px py-4px rd-6px text-12px' style={{ backgroundColor: 'var(--bg-2)', border: '1px solid var(--bg-3)' }}>
+              <span style={{ color: 'var(--text-primary)' }}>{path.split(/[/\\]/).pop()}</span>
+              <span className='cursor-pointer ml-2px' style={{ color: 'var(--text-tertiary)' }} onClick={() => handleRemoveReferenceFile(path)}>
+                {'\u00D7'}
+              </span>
+            </div>
+          ))}
+        </div>
+        <button className='text-13px b-none bg-transparent cursor-pointer' style={{ color: '#ff6b35' }} onClick={() => void handleAddReferenceFiles()}>
+          + Add files
+        </button>
+      </div>
+
       <div className='flex justify-between mt-8px'>
         <button style={buttonSecondary} onClick={() => setStep('basics')}>
           Back
@@ -307,6 +368,18 @@ const ProjectWizard: React.FC<ProjectWizardProps> = ({ visible, onClose, onCreat
               ))}
             </div>
           )}
+          {referenceFiles.length > 0 && (
+            <div className='mt-12px pt-12px' style={{ borderTop: '1px solid var(--bg-3)' }}>
+              <div className='text-12px font-500 mb-4px' style={{ color: 'var(--text-secondary)' }}>
+                Reference Materials
+              </div>
+              {referenceFiles.map((f) => (
+                <div key={f} className='text-12px mb-2px' style={{ color: 'var(--text-primary)' }}>
+                  📄 {f.split(/[/\\]/).pop()}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
         <div className='text-12px' style={{ color: 'var(--text-tertiary)' }}>
           This will create a <code>.foundry/</code> directory in your workspace with project configuration, instructions, and skill folders.
@@ -323,14 +396,47 @@ const ProjectWizard: React.FC<ProjectWizardProps> = ({ visible, onClose, onCreat
     );
   };
 
+  const renderDone = () => (
+    <div className='flex flex-col gap-16px items-center text-center'>
+      <div className='text-36px'>✅</div>
+      <div className='text-16px font-600' style={{ color: 'var(--text-primary)' }}>
+        Project "{name}" created!
+      </div>
+      <div className='text-13px' style={{ color: 'var(--text-tertiary)' }}>
+        What would you like to do next?
+      </div>
+      <div className='flex gap-12px mt-8px'>
+        <button
+          style={buttonPrimary}
+          onClick={() => {
+            handleClose();
+            void navigate('/guid', { state: { workspace: createdWorkspace } });
+          }}
+        >
+          Start a conversation
+        </button>
+        <button
+          style={buttonSecondary}
+          onClick={() => {
+            handleClose();
+            void navigate(`/projects/${encodeURIComponent(createdWorkspace)}`);
+          }}
+        >
+          View project
+        </button>
+      </div>
+    </div>
+  );
+
   const stepTitles: Record<WizardStep, string> = {
     basics: 'New Project',
     type: 'Project Type & Workspace',
     goals: 'Project Goals',
     review: 'Review & Create',
+    done: 'Project Created',
   };
 
-  const stepNumbers: Record<WizardStep, number> = { basics: 1, type: 2, goals: 3, review: 4 };
+  const stepNumbers: Record<WizardStep, number> = { basics: 1, type: 2, goals: 3, review: 4, done: 5 };
 
   return (
     <div className='fixed inset-0 z-1000 flex items-center justify-center' style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }} onClick={handleClose}>
@@ -350,9 +456,11 @@ const ProjectWizard: React.FC<ProjectWizardProps> = ({ visible, onClose, onCreat
             <div className='text-16px font-600' style={{ color: 'var(--text-primary)' }}>
               {stepTitles[step]}
             </div>
-            <div className='text-12px mt-2px' style={{ color: 'var(--text-tertiary)' }}>
-              Step {stepNumbers[step]} of 4
-            </div>
+            {step !== 'done' && (
+              <div className='text-12px mt-2px' style={{ color: 'var(--text-tertiary)' }}>
+                Step {stepNumbers[step]} of 4
+              </div>
+            )}
           </div>
           <button className='flex items-center justify-center w-28px h-28px rd-full b-none cursor-pointer' style={{ backgroundColor: 'var(--bg-2)', color: 'var(--text-secondary)' }} onClick={handleClose}>
             {'\u00D7'}
@@ -365,6 +473,7 @@ const ProjectWizard: React.FC<ProjectWizardProps> = ({ visible, onClose, onCreat
           {step === 'type' && renderType()}
           {step === 'goals' && renderGoals()}
           {step === 'review' && renderReview()}
+          {step === 'done' && renderDone()}
         </div>
       </div>
     </div>

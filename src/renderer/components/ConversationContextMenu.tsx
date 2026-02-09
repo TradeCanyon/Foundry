@@ -6,13 +6,14 @@
 
 /**
  * ConversationContextMenu — Three-dot dropdown for conversation items.
- * Replaces hover edit/delete icons with a richer menu.
+ * Supports: Star, Rename, Move to Project, Remove from Project, Export, Delete.
  */
 
 import { ipcBridge } from '@/common';
+import type { IProjectInfo } from '@/common/ipcBridge';
 import type { TChatConversation } from '@/common/storage';
 import { emitter } from '@/renderer/utils/emitter';
-import { DeleteOne, EditOne, Download, MoreOne, FolderPlus } from '@icon-park/react';
+import { DeleteOne, EditOne, Download, MoreOne, FolderPlus, FolderMinus, Star } from '@icon-park/react';
 import { Message } from '@arco-design/web-react';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -21,26 +22,21 @@ import { useNavigate } from 'react-router-dom';
 export interface ConversationContextMenuProps {
   conversation: TChatConversation;
   onRename: () => void;
+  projects?: IProjectInfo[];
 }
 
-const ConversationContextMenu: React.FC<ConversationContextMenuProps> = ({ conversation, onRename }) => {
+const ConversationContextMenu: React.FC<ConversationContextMenuProps> = ({ conversation, onRename, projects }) => {
   const [open, setOpen] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
-  const [isProject, setIsProject] = useState<boolean | null>(null);
+  const [showProjectPicker, setShowProjectPicker] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const { t } = useTranslation();
   const navigate = useNavigate();
 
-  const workspace = conversation.extra?.workspace as string | undefined;
-
-  // Check if workspace is already a project when menu opens
-  useEffect(() => {
-    if (!open || !workspace) {
-      setIsProject(null);
-      return;
-    }
-    void ipcBridge.project.detect.invoke({ workspace }).then(setIsProject);
-  }, [open, workspace]);
+  const extra = (conversation.extra || {}) as Record<string, unknown>;
+  const isStarred = extra.starred === true;
+  const workspace = extra.workspace as string | undefined;
+  const isInProject = extra.customWorkspace === true && !!workspace;
 
   // Close on click outside
   useEffect(() => {
@@ -49,6 +45,7 @@ const ConversationContextMenu: React.FC<ConversationContextMenuProps> = ({ conve
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
         setOpen(false);
         setConfirmingDelete(false);
+        setShowProjectPicker(false);
       }
     };
     document.addEventListener('mousedown', handleClick);
@@ -62,6 +59,7 @@ const ConversationContextMenu: React.FC<ConversationContextMenuProps> = ({ conve
       if (e.key === 'Escape') {
         setOpen(false);
         setConfirmingDelete(false);
+        setShowProjectPicker(false);
       }
     };
     document.addEventListener('keydown', handleKey);
@@ -73,8 +71,29 @@ const ConversationContextMenu: React.FC<ConversationContextMenuProps> = ({ conve
       e.stopPropagation();
       setOpen(!open);
       setConfirmingDelete(false);
+      setShowProjectPicker(false);
     },
     [open]
+  );
+
+  const handleStar = useCallback(
+    async (e: React.MouseEvent) => {
+      e.stopPropagation();
+      setOpen(false);
+      try {
+        const newStarred = !isStarred;
+        await ipcBridge.conversation.update.invoke({
+          id: conversation.id,
+          updates: { extra: { starred: newStarred } } as any,
+          mergeExtra: true,
+        });
+        emitter.emit('chat.history.refresh');
+        Message.info({ content: newStarred ? 'Starred' : 'Unstarred' });
+      } catch {
+        Message.error('Failed to update');
+      }
+    },
+    [conversation.id, isStarred]
   );
 
   const handleRename = useCallback(
@@ -84,6 +103,102 @@ const ConversationContextMenu: React.FC<ConversationContextMenuProps> = ({ conve
       onRename();
     },
     [onRename]
+  );
+
+  const handleMoveToProject = useCallback(
+    async (targetWorkspace: string) => {
+      const prevWorkspace = workspace;
+      const prevCustom = extra.customWorkspace;
+      try {
+        await ipcBridge.conversation.update.invoke({
+          id: conversation.id,
+          updates: { extra: { workspace: targetWorkspace, customWorkspace: true } } as any,
+          mergeExtra: true,
+        });
+        emitter.emit('chat.history.refresh');
+        setOpen(false);
+        setShowProjectPicker(false);
+
+        const undoTimeout = setTimeout(() => {}, 0);
+        clearTimeout(undoTimeout);
+
+        Message.info({
+          content: (
+            <span>
+              Moved to project.{' '}
+              <b
+                style={{ cursor: 'pointer', textDecoration: 'underline' }}
+                onClick={async () => {
+                  try {
+                    await ipcBridge.conversation.update.invoke({
+                      id: conversation.id,
+                      updates: { extra: { workspace: prevWorkspace || '', customWorkspace: !!prevCustom } } as any,
+                      mergeExtra: true,
+                    });
+                    emitter.emit('chat.history.refresh');
+                    Message.info({ content: 'Undone' });
+                  } catch {
+                    Message.error('Undo failed');
+                  }
+                }}
+              >
+                Undo
+              </b>
+            </span>
+          ),
+          duration: 5000,
+        });
+      } catch {
+        Message.error('Failed to move');
+      }
+    },
+    [conversation.id, workspace, extra.customWorkspace]
+  );
+
+  const handleRemoveFromProject = useCallback(
+    async (e: React.MouseEvent) => {
+      e.stopPropagation();
+      const prevWorkspace = workspace;
+      try {
+        await ipcBridge.conversation.update.invoke({
+          id: conversation.id,
+          updates: { extra: { workspace: '', customWorkspace: false } } as any,
+          mergeExtra: true,
+        });
+        emitter.emit('chat.history.refresh');
+        setOpen(false);
+
+        Message.info({
+          content: (
+            <span>
+              Removed from project.{' '}
+              <b
+                style={{ cursor: 'pointer', textDecoration: 'underline' }}
+                onClick={async () => {
+                  try {
+                    await ipcBridge.conversation.update.invoke({
+                      id: conversation.id,
+                      updates: { extra: { workspace: prevWorkspace, customWorkspace: true } } as any,
+                      mergeExtra: true,
+                    });
+                    emitter.emit('chat.history.refresh');
+                    Message.info({ content: 'Undone' });
+                  } catch {
+                    Message.error('Undo failed');
+                  }
+                }}
+              >
+                Undo
+              </b>
+            </span>
+          ),
+          duration: 5000,
+        });
+      } catch {
+        Message.error('Failed to remove');
+      }
+    },
+    [conversation.id, workspace]
   );
 
   const handleExport = useCallback(
@@ -152,32 +267,6 @@ const ConversationContextMenu: React.FC<ConversationContextMenuProps> = ({ conve
     [conversation.id, confirmingDelete, navigate]
   );
 
-  const handlePromoteToProject = useCallback(
-    async (e: React.MouseEvent) => {
-      e.stopPropagation();
-      if (!workspace) return;
-      setOpen(false);
-      try {
-        const result = await ipcBridge.project.init.invoke({
-          workspace,
-          name: conversation.name || 'Untitled Project',
-          description: `Promoted from conversation`,
-          type: 'workspace',
-          goals: [],
-        });
-        if (result.success) {
-          Message.success('Project created from conversation');
-          setIsProject(true);
-        } else {
-          Message.error(result.msg || 'Failed to create project');
-        }
-      } catch {
-        Message.error('Failed to create project');
-      }
-    },
-    [workspace, conversation.name]
-  );
-
   const menuItemStyle: React.CSSProperties = {
     display: 'flex',
     alignItems: 'center',
@@ -225,14 +314,75 @@ const ConversationContextMenu: React.FC<ConversationContextMenuProps> = ({ conve
             padding: '4px',
             boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
             zIndex: 9999,
-            minWidth: '160px',
+            minWidth: '180px',
           }}
         >
+          {/* Star / Unstar */}
+          <div style={menuItemStyle} onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--bg-2)')} onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')} onClick={(e) => void handleStar(e)}>
+            <Star theme={isStarred ? 'filled' : 'outline'} size='16' fill={isStarred ? '#f59e0b' : undefined} />
+            <span>{isStarred ? 'Unstar' : 'Star'}</span>
+          </div>
+
+          {/* Rename */}
           <div style={menuItemStyle} onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--bg-2)')} onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')} onClick={handleRename}>
             <EditOne theme='outline' size='16' />
             <span>{t('conversation.history.rename', { defaultValue: 'Rename' })}</span>
           </div>
 
+          {/* Move to Project / Change Project */}
+          {projects && projects.length > 0 && (
+            <div>
+              <div
+                style={menuItemStyle}
+                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--bg-2)')}
+                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowProjectPicker(!showProjectPicker);
+                }}
+              >
+                <FolderPlus theme='outline' size='16' />
+                <span>{isInProject ? 'Change Project' : 'Move to Project'}</span>
+              </div>
+              {showProjectPicker && (
+                <div style={{ padding: '2px 4px', maxHeight: '150px', overflowY: 'auto' }}>
+                  {projects.map((p) => (
+                    <div
+                      key={p.workspace}
+                      style={{
+                        ...menuItemStyle,
+                        padding: '4px 12px 4px 28px',
+                        fontSize: '12px',
+                      }}
+                      onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--bg-2)')}
+                      onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        void handleMoveToProject(p.workspace);
+                      }}
+                    >
+                      <FolderPlus theme='outline' size='14' />
+                      <span className='truncate' style={{ maxWidth: '140px' }}>
+                        {p.name}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Remove from Project */}
+          {isInProject && (
+            <div style={menuItemStyle} onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--bg-2)')} onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')} onClick={(e) => void handleRemoveFromProject(e)}>
+              <FolderMinus theme='outline' size='16' />
+              <span>Remove from Project</span>
+            </div>
+          )}
+
+          <div style={dividerStyle} />
+
+          {/* Export */}
           <div style={menuItemStyle} onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--bg-2)')} onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')} onClick={(e) => void handleExport('md', e)}>
             <Download theme='outline' size='16' />
             <span>{t('conversation.history.exportMd', { defaultValue: 'Export Markdown' })}</span>
@@ -243,16 +393,9 @@ const ConversationContextMenu: React.FC<ConversationContextMenuProps> = ({ conve
             <span>{t('conversation.history.exportJson', { defaultValue: 'Export JSON' })}</span>
           </div>
 
-          {/* Promote to Project — only show if workspace exists and isn't already a project */}
-          {workspace && isProject === false && (
-            <div style={menuItemStyle} onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--bg-2)')} onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')} onClick={(e) => void handlePromoteToProject(e)}>
-              <FolderPlus theme='outline' size='16' />
-              <span>Promote to Project</span>
-            </div>
-          )}
-
           <div style={dividerStyle} />
 
+          {/* Delete */}
           <div
             style={{
               ...menuItemStyle,

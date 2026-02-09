@@ -61,11 +61,6 @@ const AboutModalContent: React.FC = () => {
       icon: <Right theme='outline' size='16' />,
     },
     {
-      title: t('settings.contactMe'),
-      url: 'https://x.com/WailiVery',
-      icon: <Right theme='outline' size='16' />,
-    },
-    {
       title: t('settings.officialWebsite'),
       url: 'https://www.foundry.app',
       icon: <Right theme='outline' size='16' />,
@@ -82,12 +77,20 @@ const AboutModalContent: React.FC = () => {
             <Typography.Title heading={3} className='text-24px font-bold text-t-primary mb-8px'>
               Foundry
             </Typography.Title>
-            <Typography.Text className='text-14px text-t-secondary mb-12px text-center'>{t('settings.appDescription')}</Typography.Text>
-            <div className='flex items-center justify-center gap-8px mb-16px'>
+            <Typography.Text className='text-14px text-t-secondary mb-8px text-center'>Your AI Development Platform</Typography.Text>
+            <div className='flex items-center justify-center gap-8px mb-12px'>
               <span className='px-10px py-4px rd-6px text-13px bg-fill-2 text-t-primary font-500'>v{packageJson.version}</span>
               <div className='text-t-primary cursor-pointer hover:text-t-secondary transition-colors p-4px' onClick={() => openLink('https://github.com/Foundry/Foundry').catch((error) => console.error('Failed to open link:', error))}>
                 <Github theme='outline' size='20' />
               </div>
+            </div>
+            {/* Tech badges */}
+            <div className='flex items-center justify-center gap-6px mb-16px'>
+              {['Electron', 'React', 'TypeScript'].map((tech) => (
+                <span key={tech} className='text-11px px-8px py-2px rd-4px font-500' style={{ backgroundColor: 'var(--color-fill-2)', color: 'var(--color-text-3)' }}>
+                  {tech}
+                </span>
+              ))}
             </div>
 
             {/* Check Update Section */}

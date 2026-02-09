@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import type { IChannelPluginStatus } from '@/channels/types';
+import type { IChannelPluginStatus, PluginType } from '@/channels/types';
 import { ipcBridge } from '@/common';
 import { channel } from '@/common/ipcBridge';
 import type { IProvider, TProviderWithModel } from '@/common/storage';
@@ -20,7 +20,7 @@ import useSWR from 'swr';
 import { useSettingsViewMode } from '../settingsViewContext';
 import ChannelItem from './channels/ChannelItem';
 import type { ChannelConfig } from './channels/types';
-import LarkConfigForm from './LarkConfigForm';
+import GenericChannelConfigForm from './GenericChannelConfigForm';
 import TelegramConfigForm from './TelegramConfigForm';
 
 /**
@@ -47,8 +47,7 @@ const hasAvailableModels = (provider: IProvider): boolean => {
 };
 
 /**
- * Hook to get available model list for Telegram channel
- * Matches the implementation in guid/index.tsx
+ * Hook to get available model list for channel
  */
 const useChannelModelList = () => {
   const { geminiModeOptions, isGoogleAuth } = useGeminiGoogleAuthModels();
@@ -64,7 +63,6 @@ const useChannelModelList = () => {
     let allProviders: IProvider[] = [];
 
     if (isGoogleAuth) {
-      // Add Google Auth provider with available models
       const geminiProvider: IProvider = {
         id: uuid(),
         name: 'Gemini Google Auth',
@@ -79,51 +77,215 @@ const useChannelModelList = () => {
       allProviders = modelConfig || [];
     }
 
-    // Filter providers with available primary models
     return allProviders.filter(hasAvailableModels);
   }, [geminiModelValues, isGoogleAuth, modelConfig]);
 
   return { modelList };
 };
 
+// ============================================================
+// Setup Guide Component & Step Data
+// ============================================================
+
+type SetupStep = { title: string; detail: React.ReactNode };
+
+const SetupGuide: React.FC<{ steps: SetupStep[] }> = ({ steps }) => {
+  const [expanded, setExpanded] = useState(false);
+  return (
+    <div>
+      <div className='text-13px text-brand cursor-pointer hover:underline select-none' onClick={() => setExpanded(!expanded)}>
+        {expanded ? '\u25BC' : '\u25B6'} Setup Guide ({steps.length} steps)
+      </div>
+      {expanded && (
+        <ol className='pl-20px mt-8px mb-0 text-13px text-t-secondary leading-relaxed space-y-6px'>
+          {steps.map((step, i) => (
+            <li key={i}>
+              <span className='font-500 text-t-primary'>{step.title}</span>
+              <br />
+              <span>{step.detail}</span>
+            </li>
+          ))}
+        </ol>
+      )}
+    </div>
+  );
+};
+
+const Link: React.FC<{ href: string; children: React.ReactNode }> = ({ href, children }) => (
+  <a href={href} target='_blank' rel='noopener noreferrer' className='text-brand'>
+    {children}
+  </a>
+);
+const B: React.FC<{ children: React.ReactNode }> = ({ children }) => <b>{children}</b>;
+const Code: React.FC<{ children: React.ReactNode }> = ({ children }) => <code className='text-12px bg-fill-2 px-4px py-1px rd-3px'>{children}</code>;
+
+const DISCORD_SETUP_STEPS: SetupStep[] = [
+  {
+    title: 'Create Application',
+    detail: (
+      <>
+        Go to <Link href='https://discord.com/developers/applications'>Discord Developer Portal</Link> and click "New Application".
+      </>
+    ),
+  },
+  {
+    title: 'Add Bot',
+    detail: (
+      <>
+        Go to the <B>Bot</B> tab, click "Add Bot", then copy the <B>Bot Token</B>.
+      </>
+    ),
+  },
+  {
+    title: 'Enable Message Content Intent',
+    detail: (
+      <>
+        In the Bot tab under Privileged Gateway Intents, toggle <B>Message Content Intent</B> ON.
+      </>
+    ),
+  },
+  {
+    title: 'Generate Invite URL',
+    detail: (
+      <>
+        Go to <B>OAuth2 &rarr; URL Generator</B>. Select scope: <Code>bot</Code>. Select permissions: <Code>Send Messages</Code>, <Code>Read Message History</Code>, <Code>View Channels</Code>.
+      </>
+    ),
+  },
+  { title: 'Invite Bot to Server', detail: 'Copy the generated URL and open it in your browser to invite the bot to your server.' },
+  { title: 'Connect', detail: 'Paste the Bot Token above and click "Test & Connect".' },
+  { title: 'Note', detail: "Keep your app Private. Use the URL Generator link from step 4 to invite the bot \u2014 you don't need a default authorization link." },
+];
+
+const SLACK_SETUP_STEPS: SetupStep[] = [
+  {
+    title: 'Create App',
+    detail: (
+      <>
+        Go to <Link href='https://api.slack.com/apps'>api.slack.com/apps</Link> &rarr; "Create New App" &rarr; "From scratch".
+      </>
+    ),
+  },
+  {
+    title: 'Enable Socket Mode',
+    detail: (
+      <>
+        Go to <B>Settings &rarr; Socket Mode</B>, toggle ON. Create an App-Level Token with <Code>connections:write</Code> scope. Copy it (starts with <Code>xapp-</Code>).
+      </>
+    ),
+  },
+  {
+    title: 'Add Bot Scopes',
+    detail: (
+      <>
+        Go to <B>OAuth & Permissions</B> and add Bot Token Scopes: <Code>chat:write</Code>, <Code>app_mentions:read</Code>, <Code>im:history</Code>, <Code>im:read</Code>, <Code>im:write</Code>.
+      </>
+    ),
+  },
+  {
+    title: 'Install to Workspace',
+    detail: (
+      <>
+        Click <B>Install to Workspace</B> and authorize.
+      </>
+    ),
+  },
+  {
+    title: 'Copy Bot Token',
+    detail: (
+      <>
+        Copy the <B>Bot User OAuth Token</B> (starts with <Code>xoxb-</Code>) from the OAuth & Permissions page.
+      </>
+    ),
+  },
+  { title: 'Connect', detail: 'Paste both tokens above and click "Test & Connect".' },
+];
+
+const WHATSAPP_SETUP_STEPS: SetupStep[] = [
+  { title: 'Start Pairing', detail: 'Click "Test & Connect" below to start the pairing process.' },
+  { title: 'Scan QR Code', detail: 'A QR code will appear in your terminal/logs. Scan it with WhatsApp on your phone (Settings \u2192 Linked Devices \u2192 Link a Device).' },
+  { title: 'Connected', detail: 'Once paired, Foundry will automatically connect.' },
+  { title: 'Note', detail: 'WhatsApp Web connections can be unstable. If disconnected, click "Reconnect" to re-pair.' },
+  {
+    title: 'Requirement',
+    detail: (
+      <>
+        Requires <Code>@whiskeysockets/baileys</Code> npm package. If not installed, run <Code>npm install @whiskeysockets/baileys</Code> in the Foundry directory.
+      </>
+    ),
+  },
+];
+
+const SIGNAL_SETUP_STEPS: SetupStep[] = [
+  {
+    title: 'Run signal-cli-rest-api',
+    detail: (
+      <>
+        Install and run <Link href='https://github.com/bbernhard/signal-cli-rest-api'>signal-cli-rest-api</Link> (Docker recommended: <Code>docker run -p 8080:8080 bbernhard/signal-cli-rest-api</Code>).
+      </>
+    ),
+  },
+  { title: 'Register Phone Number', detail: 'Register a phone number with signal-cli (see signal-cli docs).' },
+  {
+    title: 'Enter Credentials',
+    detail: (
+      <>
+        Enter the registered phone number and API base URL (usually <Code>http://localhost:8080</Code>).
+      </>
+    ),
+  },
+  { title: 'Connect', detail: 'Click "Test & Connect".' },
+  { title: 'Note (Advanced)', detail: 'This requires a dedicated phone number and a running signal-cli instance. Recommended for advanced users only.' },
+];
+
+/** Plugin IDs follow the {type}_default convention */
+const PLUGIN_IDS: Record<PluginType, string> = {
+  telegram: 'telegram_default',
+  slack: 'slack_default',
+  discord: 'discord_default',
+  whatsapp: 'whatsapp_default',
+  signal: 'signal_default',
+};
+
 /**
- * Assistant Settings Content Component
+ * Channel Settings Content Component
  */
 const ChannelModalContent: React.FC = () => {
   const { t } = useTranslation();
   const viewMode = useSettingsViewMode();
   const isPageMode = viewMode === 'page';
 
-  // Plugin state
-  const [pluginStatus, setPluginStatus] = useState<IChannelPluginStatus | null>(null);
-  const [larkPluginStatus, setLarkPluginStatus] = useState<IChannelPluginStatus | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [enableLoading, setEnableLoading] = useState(false);
-  const [larkEnableLoading, setLarkEnableLoading] = useState(false);
+  // Plugin status for ALL channels
+  const [pluginStatuses, setPluginStatuses] = useState<Record<string, IChannelPluginStatus | null>>({});
+  const [_loading, setLoading] = useState(false);
+  const [enableLoading, setEnableLoading] = useState<Record<string, boolean>>({});
 
-  // Collapse state - true means collapsed (closed), false means expanded (open)
+  // Collapse state — all collapsed by default
   const [collapseKeys, setCollapseKeys] = useState<Record<string, boolean>>({
-    telegram: true, // Default to collapsed
+    telegram: true,
     slack: true,
     discord: true,
-    lark: true,
+    whatsapp: true,
+    signal: true,
   });
 
-  // Model selection state
+  // Model selection state (for Telegram)
   const { modelList } = useChannelModelList();
   const [selectedModel, setSelectedModel] = useState<TProviderWithModel | null>(null);
-  const [larkSelectedModel, setLarkSelectedModel] = useState<TProviderWithModel | null>(null);
 
-  // Load plugin status
+  const getStatus = (type: PluginType) => pluginStatuses[type] || null;
+
+  // Load ALL plugin statuses
   const loadPluginStatus = useCallback(async () => {
     setLoading(true);
     try {
       const result = await channel.getPluginStatus.invoke();
       if (result.success && result.data) {
-        const telegramPlugin = result.data.find((p) => p.type === 'telegram');
-        const larkPlugin = result.data.find((p) => p.type === 'lark');
-        setPluginStatus(telegramPlugin || null);
-        setLarkPluginStatus(larkPlugin || null);
+        const statusMap: Record<string, IChannelPluginStatus | null> = {};
+        for (const plugin of result.data) {
+          statusMap[plugin.type] = plugin;
+        }
+        setPluginStatuses(statusMap);
       }
     } catch (error) {
       console.error('[ChannelSettings] Failed to load plugin status:', error);
@@ -137,27 +299,17 @@ const ChannelModalContent: React.FC = () => {
     void loadPluginStatus();
   }, [loadPluginStatus]);
 
-  // Load saved model selection
+  // Load saved model selection (Telegram)
   useEffect(() => {
     if (!modelList || modelList.length === 0) return;
 
     const loadSavedModel = async () => {
       try {
-        // Load Telegram model
         const savedTelegramModel = await ConfigStorage.get('assistant.telegram.defaultModel');
         if (savedTelegramModel && savedTelegramModel.id && savedTelegramModel.useModel) {
           const provider = modelList.find((p) => p.id === savedTelegramModel.id);
           if (provider && provider.model?.includes(savedTelegramModel.useModel)) {
             setSelectedModel({ ...provider, useModel: savedTelegramModel.useModel });
-          }
-        }
-
-        // Load Lark model
-        const savedLarkModel = await ConfigStorage.get('assistant.lark.defaultModel');
-        if (savedLarkModel && savedLarkModel.id && savedLarkModel.useModel) {
-          const provider = modelList.find((p) => p.id === savedLarkModel.id);
-          if (provider && provider.model?.includes(savedLarkModel.useModel)) {
-            setLarkSelectedModel({ ...provider, useModel: savedLarkModel.useModel });
           }
         }
       } catch (error) {
@@ -168,19 +320,14 @@ const ChannelModalContent: React.FC = () => {
     void loadSavedModel();
   }, [modelList]);
 
-  // Listen for plugin status changes
+  // Listen for plugin status changes (ALL channels)
   useEffect(() => {
     const unsubscribe = channel.pluginStatusChanged.on(({ status }) => {
-      if (status.type === 'telegram') {
-        setPluginStatus(status);
-      } else if (status.type === 'lark') {
-        setLarkPluginStatus(status);
-      }
+      setPluginStatuses((prev) => ({ ...prev, [status.type]: status }));
     });
     return () => unsubscribe();
   }, []);
 
-  // Toggle collapse
   const handleToggleCollapse = (channelId: string) => {
     setCollapseKeys((prev) => ({
       ...prev,
@@ -188,141 +335,143 @@ const ChannelModalContent: React.FC = () => {
     }));
   };
 
-  // Enable/Disable plugin
-  const handleTogglePlugin = async (enabled: boolean) => {
-    setEnableLoading(true);
-    try {
-      if (enabled) {
-        // Check if we have a token - already saved in database
-        if (!pluginStatus?.hasToken) {
-          Message.warning(t('settings.assistant.tokenRequired', 'Please enter a bot token first'));
-          setEnableLoading(false);
-          return;
-        }
+  const handleTogglePlugin = useCallback(
+    async (pluginType: PluginType, enabled: boolean) => {
+      const pluginId = PLUGIN_IDS[pluginType];
+      setEnableLoading((prev) => ({ ...prev, [pluginType]: true }));
+      try {
+        if (enabled) {
+          const status = getStatus(pluginType);
+          if (!status?.hasToken) {
+            Message.warning(t('settings.assistant.tokenRequired', 'Please configure credentials first'));
+            setEnableLoading((prev) => ({ ...prev, [pluginType]: false }));
+            return;
+          }
 
-        const result = await channel.enablePlugin.invoke({
-          pluginId: 'telegram_default',
-          config: {},
-        });
-
-        if (result.success) {
-          Message.success(t('settings.assistant.pluginEnabled', 'Telegram bot enabled'));
-          await loadPluginStatus();
+          const result = await channel.enablePlugin.invoke({ pluginId, config: {} });
+          if (result.success) {
+            Message.success(`${pluginType} enabled`);
+            await loadPluginStatus();
+          } else {
+            Message.error(result.msg || `Failed to enable ${pluginType}`);
+          }
         } else {
-          Message.error(result.msg || t('settings.assistant.enableFailed', 'Failed to enable plugin'));
+          const result = await channel.disablePlugin.invoke({ pluginId });
+          if (result.success) {
+            Message.success(`${pluginType} disabled`);
+            await loadPluginStatus();
+          } else {
+            Message.error(result.msg || `Failed to disable ${pluginType}`);
+          }
         }
-      } else {
-        const result = await channel.disablePlugin.invoke({ pluginId: 'telegram_default' });
-
-        if (result.success) {
-          Message.success(t('settings.assistant.pluginDisabled', 'Telegram bot disabled'));
-          await loadPluginStatus();
-        } else {
-          Message.error(result.msg || t('settings.assistant.disableFailed', 'Failed to disable plugin'));
-        }
+      } catch (error: any) {
+        Message.error(error.message);
+      } finally {
+        setEnableLoading((prev) => ({ ...prev, [pluginType]: false }));
       }
-    } catch (error: any) {
-      Message.error(error.message);
-    } finally {
-      setEnableLoading(false);
-    }
-  };
+    },
+    [loadPluginStatus, pluginStatuses, t]
+  );
 
-  // Enable/Disable Lark plugin
-  const handleToggleLarkPlugin = async (enabled: boolean) => {
-    setLarkEnableLoading(true);
-    try {
-      if (enabled) {
-        // Check if we have credentials - already saved in database
-        if (!larkPluginStatus?.hasToken) {
-          Message.warning(t('settings.lark.credentialsRequired', 'Please configure Lark credentials first'));
-          setLarkEnableLoading(false);
-          return;
-        }
-
-        const result = await channel.enablePlugin.invoke({
-          pluginId: 'lark_default',
-          config: {},
-        });
-
-        if (result.success) {
-          Message.success(t('settings.lark.pluginEnabled', 'Lark bot enabled'));
-          await loadPluginStatus();
-        } else {
-          Message.error(result.msg || t('settings.lark.enableFailed', 'Failed to enable Lark plugin'));
-        }
-      } else {
-        const result = await channel.disablePlugin.invoke({ pluginId: 'lark_default' });
-
-        if (result.success) {
-          Message.success(t('settings.lark.pluginDisabled', 'Lark bot disabled'));
-          await loadPluginStatus();
-        } else {
-          Message.error(result.msg || t('settings.lark.disableFailed', 'Failed to disable Lark plugin'));
-        }
-      }
-    } catch (error: any) {
-      Message.error(error.message);
-    } finally {
-      setLarkEnableLoading(false);
-    }
-  };
+  const handleStatusChange = useCallback((type: PluginType, status: IChannelPluginStatus | null) => {
+    setPluginStatuses((prev) => ({ ...prev, [type]: status }));
+  }, []);
 
   // Build channel configurations
   const channels: ChannelConfig[] = useMemo(() => {
-    const telegramChannel: ChannelConfig = {
-      id: 'telegram',
-      title: t('channels.telegramTitle', 'Telegram'),
-      description: t('channels.telegramDesc', 'Chat with Foundry assistant via Telegram'),
-      status: 'active',
-      enabled: pluginStatus?.enabled || false,
-      disabled: enableLoading,
-      isConnected: pluginStatus?.connected || false,
-      botUsername: pluginStatus?.botUsername,
-      defaultModel: selectedModel?.useModel,
-      content: <TelegramConfigForm pluginStatus={pluginStatus} modelList={modelList || []} selectedModel={selectedModel} onStatusChange={setPluginStatus} onModelChange={setSelectedModel} />,
-    };
+    const telegramStatus = getStatus('telegram');
+    const slackStatus = getStatus('slack');
+    const discordStatus = getStatus('discord');
+    const whatsappStatus = getStatus('whatsapp');
+    const signalStatus = getStatus('signal');
 
-    const larkChannel: ChannelConfig = {
-      id: 'lark',
-      title: t('channels.larkTitle', 'Lark / Feishu'),
-      description: t('channels.larkDesc', 'Chat with Foundry assistant via Lark or Feishu'),
-      status: 'active',
-      enabled: larkPluginStatus?.enabled || false,
-      disabled: larkEnableLoading,
-      isConnected: larkPluginStatus?.connected || false,
-      defaultModel: larkSelectedModel?.useModel,
-      content: <LarkConfigForm pluginStatus={larkPluginStatus} modelList={modelList || []} selectedModel={larkSelectedModel} onStatusChange={setLarkPluginStatus} onModelChange={setLarkSelectedModel} />,
-    };
-
-    const comingSoonChannels: ChannelConfig[] = [
+    return [
       {
-        id: 'slack',
-        title: t('channels.slackTitle', 'Slack'),
-        description: t('channels.slackDesc', 'Chat with Foundry assistant via Slack'),
-        status: 'coming_soon',
-        enabled: false,
-        disabled: true,
-        content: <div className='text-14px text-t-secondary py-12px'>{t('channels.comingSoonDesc', 'Support for {{channel}} is coming soon', { channel: t('channels.slackTitle', 'Slack') })}</div>,
+        id: 'telegram',
+        title: t('channels.telegramTitle', 'Telegram'),
+        description: t('channels.telegramDesc', 'Chat with Foundry assistant via Telegram'),
+        status: 'active' as const,
+        enabled: telegramStatus?.enabled || false,
+        disabled: enableLoading['telegram'] || false,
+        isConnected: telegramStatus?.connected || false,
+        botUsername: telegramStatus?.botUsername,
+        defaultModel: selectedModel?.useModel,
+        content: <TelegramConfigForm pluginStatus={telegramStatus} modelList={modelList || []} selectedModel={selectedModel} onStatusChange={(s) => handleStatusChange('telegram', s)} onModelChange={setSelectedModel} />,
       },
       {
         id: 'discord',
         title: t('channels.discordTitle', 'Discord'),
         description: t('channels.discordDesc', 'Chat with Foundry assistant via Discord'),
-        status: 'coming_soon',
-        enabled: false,
-        disabled: true,
-        content: <div className='text-14px text-t-secondary py-12px'>{t('channels.comingSoonDesc', 'Support for {{channel}} is coming soon', { channel: t('channels.discordTitle', 'Discord') })}</div>,
+        status: 'active' as const,
+        enabled: discordStatus?.enabled || false,
+        disabled: enableLoading['discord'] || false,
+        isConnected: discordStatus?.connected || false,
+        botUsername: discordStatus?.botUsername,
+        content: <GenericChannelConfigForm pluginId={PLUGIN_IDS.discord} channelName='Discord' fields={[{ key: 'token', label: 'Bot Token', placeholder: 'Paste your Discord bot token', type: 'password' }]} setupInstructions={<SetupGuide steps={DISCORD_SETUP_STEPS} />} pluginStatus={discordStatus} onStatusChange={(s) => handleStatusChange('discord', s)} />,
+      },
+      {
+        id: 'slack',
+        title: t('channels.slackTitle', 'Slack'),
+        description: t('channels.slackDesc', 'Chat with Foundry assistant via Slack'),
+        status: 'active' as const,
+        enabled: slackStatus?.enabled || false,
+        disabled: enableLoading['slack'] || false,
+        isConnected: slackStatus?.connected || false,
+        botUsername: slackStatus?.botUsername,
+        content: (
+          <GenericChannelConfigForm
+            pluginId={PLUGIN_IDS.slack}
+            channelName='Slack'
+            fields={[
+              { key: 'token', label: 'Bot Token', placeholder: 'xoxb-...', type: 'password', description: 'Bot User OAuth Token from OAuth & Permissions' },
+              { key: 'appId', label: 'App Token', placeholder: 'xapp-...', type: 'password', description: 'App-Level Token with connections:write scope' },
+            ]}
+            setupInstructions={<SetupGuide steps={SLACK_SETUP_STEPS} />}
+            pluginStatus={slackStatus}
+            onStatusChange={(s) => handleStatusChange('slack', s)}
+          />
+        ),
+      },
+      {
+        id: 'whatsapp',
+        title: t('channels.whatsappTitle', 'WhatsApp'),
+        description: t('channels.whatsappDesc', 'Chat with Foundry assistant via WhatsApp'),
+        status: 'active' as const,
+        enabled: whatsappStatus?.enabled || false,
+        disabled: enableLoading['whatsapp'] || false,
+        isConnected: whatsappStatus?.connected || false,
+        content: <GenericChannelConfigForm pluginId={PLUGIN_IDS.whatsapp} channelName='WhatsApp' fields={[]} setupInstructions={<SetupGuide steps={WHATSAPP_SETUP_STEPS} />} pluginStatus={whatsappStatus} onStatusChange={(s) => handleStatusChange('whatsapp', s)} />,
+      },
+      {
+        id: 'signal',
+        title: t('channels.signalTitle', 'Signal'),
+        description: t('channels.signalDesc', 'Chat with Foundry assistant via Signal'),
+        status: 'active' as const,
+        enabled: signalStatus?.enabled || false,
+        disabled: enableLoading['signal'] || false,
+        isConnected: signalStatus?.connected || false,
+        content: (
+          <GenericChannelConfigForm
+            pluginId={PLUGIN_IDS.signal}
+            channelName='Signal'
+            fields={[
+              { key: 'token', label: 'Phone Number', placeholder: '+1234567890', description: 'The phone number registered with signal-cli' },
+              { key: 'appId', label: 'API Base URL', placeholder: 'http://localhost:8080', description: 'URL of your signal-cli-rest-api instance' },
+            ]}
+            setupInstructions={<SetupGuide steps={SIGNAL_SETUP_STEPS} />}
+            pluginStatus={signalStatus}
+            onStatusChange={(s) => handleStatusChange('signal', s)}
+          />
+        ),
       },
     ];
+  }, [pluginStatuses, selectedModel, modelList, enableLoading, t, handleStatusChange]);
 
-    return [telegramChannel, larkChannel, ...comingSoonChannels];
-  }, [pluginStatus, larkPluginStatus, selectedModel, larkSelectedModel, modelList, enableLoading, larkEnableLoading, t]);
-
-  // Get toggle handler for each channel
-  const getToggleHandler = (channelId: string) => {
-    if (channelId === 'telegram') return handleTogglePlugin;
-    if (channelId === 'lark') return handleToggleLarkPlugin;
+  const getToggleHandler = (channelId: string): ((enabled: boolean) => void) | undefined => {
+    const type = channelId as PluginType;
+    if (PLUGIN_IDS[type]) {
+      return (enabled: boolean): void => void handleTogglePlugin(type, enabled);
+    }
     return undefined;
   };
 

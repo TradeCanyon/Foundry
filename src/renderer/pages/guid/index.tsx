@@ -10,23 +10,14 @@ import type { IProvider, TProviderWithModel } from '@/common/storage';
 import { ConfigStorage } from '@/common/storage';
 import { resolveLocaleKey, uuid } from '@/common/utils';
 import coworkSvg from '@/renderer/assets/cowork.svg';
-import AuggieLogo from '@/renderer/assets/logos/auggie.svg';
-import ClaudeLogo from '@/renderer/assets/logos/claude.svg';
-import CodexLogo from '@/renderer/assets/logos/codex.svg';
-import DroidLogo from '@/renderer/assets/logos/droid.svg';
-import GeminiLogo from '@/renderer/assets/logos/gemini.svg';
-import GitHubLogo from '@/renderer/assets/logos/github.svg';
-import GooseLogo from '@/renderer/assets/logos/goose.svg';
-import IflowLogo from '@/renderer/assets/logos/iflow.svg';
-import KimiLogo from '@/renderer/assets/logos/kimi.svg';
-import OpenCodeLogo from '@/renderer/assets/logos/opencode.svg';
-import QoderLogo from '@/renderer/assets/logos/qoder.png';
-import QwenLogo from '@/renderer/assets/logos/qwen.svg';
+import { AGENT_LOGO_MAP } from '@/renderer/utils/agentLogos';
 import ClaudeCliPrompt from '@/renderer/components/ClaudeCliPrompt';
 import FilePreview from '@/renderer/components/FilePreview';
 import { useLayoutContext } from '@/renderer/context/LayoutContext';
 import { useCompositionInput } from '@/renderer/hooks/useCompositionInput';
 import { useDragUpload } from '@/renderer/hooks/useDragUpload';
+import { useSendBoxAutocomplete } from '@/renderer/hooks/useSendBoxAutocomplete';
+import SendBoxAutocomplete from '@/renderer/components/SendBoxAutocomplete';
 import { useGeminiGoogleAuthModels } from '@/renderer/hooks/useGeminiGoogleAuthModels';
 import { useInputFocusRing } from '@/renderer/hooks/useInputFocusRing';
 import { usePasteService } from '@/renderer/hooks/usePasteService';
@@ -171,21 +162,6 @@ const useModelList = () => {
   return { modelList, isGoogleAuth, geminiModeOptions };
 };
 
-// Agent Logo mapping (custom uses Robot icon from @icon-park/react)
-const AGENT_LOGO_MAP: Partial<Record<AcpBackend, string>> = {
-  claude: ClaudeLogo,
-  gemini: GeminiLogo,
-  qwen: QwenLogo,
-  codex: CodexLogo,
-  droid: DroidLogo,
-  iflow: IflowLogo,
-  goose: GooseLogo,
-  auggie: AuggieLogo,
-  kimi: KimiLogo,
-  opencode: OpenCodeLogo,
-  copilot: GitHubLogo,
-  qoder: QoderLogo,
-};
 const CUSTOM_AVATAR_IMAGE_MAP: Record<string, string> = {
   'cowork.svg': coworkSvg,
   '🛠️': coworkSvg,
@@ -216,13 +192,18 @@ const Guid: React.FC = () => {
   const { data: projectsData } = useSWR('projects-list', () => ipcBridge.project.list.invoke());
   const projects = (projectsData?.success ? projectsData.data : []) || [];
 
-  // Read workspace and mode from location.state (passed from tabs add button or sidebar)
+  // Read workspace, mode, and agent from location.state (passed from tabs add button or sidebar)
   useEffect(() => {
-    const state = location.state as { workspace?: string; mode?: string } | null;
+    const state = location.state as { workspace?: string; mode?: string; agent?: string } | null;
     if (state?.workspace) {
       setDir(state.workspace);
     }
-    // Image mode shelved — CLIs don't natively support image generation
+    if (state?.mode === 'image') {
+      setSelectedAgentKey('image');
+    }
+    if (state?.agent === 'ember') {
+      setSelectedAgentKey('ember');
+    }
   }, [location.state]);
   const { modelList, isGoogleAuth, geminiModeOptions } = useModelList();
   const geminiModeLookup = useMemo(() => {
@@ -408,7 +389,7 @@ const Guid: React.FC = () => {
 
   const mentionOptions = useMemo(() => {
     const agents = availableAgents || [];
-    return agents.map((agent) => {
+    const options = agents.map((agent) => {
       const key = getAgentKey(agent);
       const label = agent.name || agent.backend;
       const avatarValue = agent.backend === 'custom' ? agent.avatar || customAgentAvatarMap.get(agent.customAgentId || '') : undefined;
@@ -431,6 +412,16 @@ const Guid: React.FC = () => {
         logo: AGENT_LOGO_MAP[agent.backend],
       };
     });
+    // Add Ember as a built-in mention option
+    options.push({
+      key: 'ember',
+      label: 'Ember',
+      tokens: new Set(['ember']),
+      avatar: '\u{1F525}',
+      avatarImage: undefined,
+      logo: undefined,
+    });
+    return options;
   }, [availableAgents, customAgentAvatarMap]);
 
   const filteredMentionOptions = useMemo(() => {
@@ -587,6 +578,9 @@ const Guid: React.FC = () => {
 
   const { compositionHandlers, isComposing } = useCompositionInput();
 
+  // Autocomplete for /commands (guid page handles @mentions separately)
+  const slashAutocomplete = useSendBoxAutocomplete(input, setInput, isComposing, isInputFocused);
+
   /**
    * Resolve preset assistant rules and skills
    *
@@ -734,6 +728,61 @@ const Guid: React.FC = () => {
     const { rules: presetRules } = await resolvePresetRulesAndSkills(agentInfo);
     // Get enabled skills list
     const enabledSkills = resolveEnabledSkills(agentInfo);
+
+    // Image — dedicated image generation flow
+    if (selectedAgentKey === 'image') {
+      try {
+        const conversation = await ipcBridge.conversation.create.invoke({
+          type: 'image',
+          name: input.substring(0, 60) || 'Image Generation',
+          model: currentModel!, // not used by image but required by type
+          extra: {},
+        });
+
+        if (!conversation?.id) {
+          alert('Failed to create Image conversation.');
+          return;
+        }
+
+        // Store initial prompt so ImageChat picks it up
+        sessionStorage.setItem(`image_initial_message_${conversation.id}`, JSON.stringify({ input }));
+
+        emitter.emit('chat.history.refresh');
+        void navigate(`/conversation/${conversation.id}`);
+      } catch (error: unknown) {
+        console.error('Failed to create Image conversation:', error);
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        alert(`Failed to create Image conversation: ${errorMessage}`);
+        throw error;
+      }
+      return;
+    }
+
+    // Ember — lightweight personal assistant
+    if (selectedAgentKey === 'ember') {
+      try {
+        const conversation = await ipcBridge.conversation.create.invoke({
+          type: 'ember',
+          name: 'Ember',
+          model: currentModel!, // not used by Ember but required by type
+          extra: {},
+        });
+
+        if (!conversation?.id) {
+          alert('Failed to create Ember conversation.');
+          return;
+        }
+
+        emitter.emit('chat.history.refresh');
+        void navigate(`/conversation/${conversation.id}`);
+      } catch (error: unknown) {
+        console.error('Failed to create Ember conversation:', error);
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        alert(`Failed to create Ember conversation: ${errorMessage}`);
+        throw error;
+      }
+      return;
+    }
 
     // Default to Gemini, or Preset configured as Gemini
     if (!selectedAgent || selectedAgent === 'gemini' || (isPreset && presetAgentType === 'gemini')) {
@@ -951,6 +1000,8 @@ const Guid: React.FC = () => {
   const handleInputKeyDown = useCallback(
     (event: React.KeyboardEvent) => {
       if (isComposing.current) return;
+      // /command autocomplete takes priority when active
+      if (slashAutocomplete.trigger === '/' && slashAutocomplete.handleKeyDown(event)) return;
       if ((mentionOpen || mentionSelectorOpen) && (event.key === 'ArrowDown' || event.key === 'ArrowUp')) {
         event.preventDefault();
         if (filteredMentionOptions.length === 0) return;
@@ -1006,7 +1057,7 @@ const Guid: React.FC = () => {
         sendMessageHandler();
       }
     },
-    [filteredMentionOptions, mentionOpen, mentionQuery, mentionSelectorOpen, selectMentionAgent, sendMessageHandler, mentionActiveIndex, mentionSelectorVisible, input, isComposing]
+    [filteredMentionOptions, mentionOpen, mentionQuery, mentionSelectorOpen, selectMentionAgent, sendMessageHandler, mentionActiveIndex, mentionSelectorVisible, input, isComposing, slashAutocomplete]
   );
   const setDefaultModel = async () => {
     if (!modelList || modelList.length === 0) {
@@ -1164,291 +1215,370 @@ const Guid: React.FC = () => {
                       </React.Fragment>
                     );
                   })}
+                {/* Ember — built-in personal assistant */}
+                {(() => {
+                  const isSelected = selectedAgentKey === 'ember';
+                  return (
+                    <>
+                      <div className='text-16px lh-1 p-2px select-none opacity-30'>|</div>
+                      <div
+                        className={`group flex items-center cursor-pointer whitespace-nowrap overflow-hidden ${isSelected ? 'opacity-100 px-12px py-8px rd-20px mx-2px' : 'opacity-60 p-4px hover:opacity-100'}`}
+                        style={
+                          isSelected
+                            ? {
+                                transition: 'opacity 0.5s cubic-bezier(0.2, 0.8, 0.3, 1)',
+                                backgroundColor: 'var(--fill-0)',
+                              }
+                            : { transition: 'opacity 0.5s cubic-bezier(0.2, 0.8, 0.3, 1)' }
+                        }
+                        onClick={() => {
+                          setSelectedAgentKey('ember');
+                          setMentionOpen(false);
+                          setMentionQuery(null);
+                          setMentionSelectorOpen(false);
+                          setMentionActiveIndex(0);
+                        }}
+                      >
+                        <span style={{ fontSize: 18, lineHeight: '20px', flexShrink: 0 }}>&#x1F525;</span>
+                        <span
+                          className={`font-medium text-14px ${isSelected ? 'font-semibold ml-4px' : 'max-w-0 opacity-0 overflow-hidden group-hover:max-w-100px group-hover:opacity-100 group-hover:ml-8px'}`}
+                          style={{
+                            color: 'var(--text-primary)',
+                            transition: isSelected ? 'color 0.5s cubic-bezier(0.2, 0.8, 0.3, 1), font-weight 0.5s cubic-bezier(0.2, 0.8, 0.3, 1)' : 'max-width 0.6s cubic-bezier(0.2, 0.8, 0.3, 1), opacity 0.5s cubic-bezier(0.2, 0.8, 0.3, 1) 0.05s, margin 0.6s cubic-bezier(0.2, 0.8, 0.3, 1)',
+                          }}
+                        >
+                          Ember
+                        </span>
+                      </div>
+                    </>
+                  );
+                })()}
+                {/* Image — dedicated image generation */}
+                {(() => {
+                  const isSelected = selectedAgentKey === 'image';
+                  return (
+                    <>
+                      <div className='text-16px lh-1 p-2px select-none opacity-30'>|</div>
+                      <div
+                        className={`group flex items-center cursor-pointer whitespace-nowrap overflow-hidden ${isSelected ? 'opacity-100 px-12px py-8px rd-20px mx-2px' : 'opacity-60 p-4px hover:opacity-100'}`}
+                        style={
+                          isSelected
+                            ? {
+                                transition: 'opacity 0.5s cubic-bezier(0.2, 0.8, 0.3, 1)',
+                                backgroundColor: 'var(--fill-0)',
+                              }
+                            : { transition: 'opacity 0.5s cubic-bezier(0.2, 0.8, 0.3, 1)' }
+                        }
+                        onClick={() => {
+                          setSelectedAgentKey('image');
+                          setMentionOpen(false);
+                          setMentionQuery(null);
+                          setMentionSelectorOpen(false);
+                          setMentionActiveIndex(0);
+                        }}
+                      >
+                        <span style={{ fontSize: 18, lineHeight: '20px', flexShrink: 0 }}>&#x1F3A8;</span>
+                        <span
+                          className={`font-medium text-14px ${isSelected ? 'font-semibold ml-4px' : 'max-w-0 opacity-0 overflow-hidden group-hover:max-w-100px group-hover:opacity-100 group-hover:ml-8px'}`}
+                          style={{
+                            color: 'var(--text-primary)',
+                            transition: isSelected ? 'color 0.5s cubic-bezier(0.2, 0.8, 0.3, 1), font-weight 0.5s cubic-bezier(0.2, 0.8, 0.3, 1)' : 'max-width 0.6s cubic-bezier(0.2, 0.8, 0.3, 1), opacity 0.5s cubic-bezier(0.2, 0.8, 0.3, 1) 0.05s, margin 0.6s cubic-bezier(0.2, 0.8, 0.3, 1)',
+                          }}
+                        >
+                          Image
+                        </span>
+                      </div>
+                    </>
+                  );
+                })()}
               </div>
             </div>
           )}
 
-          <div
-            className={`${styles.guidInputCard} relative p-16px border-3 b bg-dialog-fill-0 b-solid rd-20px flex flex-col ${mentionOpen ? 'overflow-visible' : 'overflow-hidden'} transition-all duration-200 ${isFileDragging ? 'border-dashed' : ''}`}
-            style={{
-              zIndex: 1,
-              transition: 'box-shadow 0.25s ease, border-color 0.25s ease, border-width 0.25s ease',
-              ...(isFileDragging
-                ? {
-                    backgroundColor: 'var(--color-primary-light-1)',
-                    borderColor: 'rgb(var(--primary-3))',
-                    borderWidth: '1px',
-                  }
-                : {
-                    borderWidth: '1px',
-                    borderColor: isInputActive ? activeBorderColor : inactiveBorderColor,
-                    boxShadow: isInputActive ? activeShadow : 'none',
-                  }),
-            }}
-            {...dragHandlers}
-          >
-            {mentionSelectorVisible && (
-              <div className='flex items-center gap-8px mb-8px'>
-                <Dropdown
-                  trigger='click'
-                  popupVisible={mentionSelectorOpen}
-                  onVisibleChange={(visible) => {
-                    setMentionSelectorOpen(visible);
-                    if (visible) {
-                      setMentionQuery(null);
+          <div className='relative'>
+            {slashAutocomplete.trigger === '/' && <SendBoxAutocomplete isOpen={slashAutocomplete.isOpen} trigger={slashAutocomplete.trigger} filteredOptions={slashAutocomplete.filteredOptions} activeIndex={slashAutocomplete.activeIndex} menuRef={slashAutocomplete.menuRef} onSelect={slashAutocomplete.handleSelect} />}
+            <div
+              className={`${styles.guidInputCard} relative p-16px border-3 b bg-dialog-fill-0 b-solid rd-20px flex flex-col ${mentionOpen ? 'overflow-visible' : 'overflow-hidden'} transition-all duration-200 ${isFileDragging ? 'border-dashed' : ''}`}
+              style={{
+                zIndex: 1,
+                transition: 'box-shadow 0.25s ease, border-color 0.25s ease, border-width 0.25s ease',
+                ...(isFileDragging
+                  ? {
+                      backgroundColor: 'var(--color-primary-light-1)',
+                      borderColor: 'rgb(var(--primary-3))',
+                      borderWidth: '1px',
                     }
-                  }}
-                  droplist={mentionMenu}
-                >
-                  <div className='flex items-center gap-6px bg-fill-2 px-10px py-4px rd-16px cursor-pointer select-none'>
-                    <span className='text-14px font-medium text-t-primary'>@{selectedAgentLabel}</span>
-                    <Down theme='outline' size={12} />
-                  </div>
-                </Dropdown>
-              </div>
-            )}
-            <Input.TextArea autoSize={{ minRows: 3, maxRows: 20 }} placeholder={typewriterPlaceholder || t('conversation.welcome.placeholder')} className={`text-16px focus:b-none rounded-xl !bg-transparent !b-none !resize-none !p-0 ${styles.lightPlaceholder}`} value={input} onChange={handleInputChange} onPaste={onPaste} onFocus={handleTextareaFocus} onBlur={handleTextareaBlur} {...compositionHandlers} onKeyDown={handleInputKeyDown}></Input.TextArea>
-            {mentionOpen && (
-              <div className='absolute z-50' style={{ left: 16, top: 44 }}>
-                {mentionMenu}
-              </div>
-            )}
-            {files.length > 0 && (
-              // Show pending files and allow cancellation
-              <div className='flex flex-wrap items-center gap-8px mt-12px mb-12px'>
-                {files.map((path) => (
-                  <FilePreview key={path} path={path} onRemove={() => handleRemoveFile(path)} />
-                ))}
-              </div>
-            )}
-            <div className={styles.actionRow}>
-              <div className={styles.actionTools}>
-                <Dropdown
-                  trigger='hover'
-                  onVisibleChange={setIsPlusDropdownOpen}
-                  droplist={
-                    <Menu
-                      className='min-w-200px'
-                      onClickMenuItem={(key) => {
-                        if (key === 'file') {
-                          ipcBridge.dialog.showOpen
-                            .invoke({ properties: ['openFile', 'multiSelections'] })
-                            .then((uploadedFiles) => {
-                              if (uploadedFiles && uploadedFiles.length > 0) {
-                                // Files uploaded via dialog use append mode
-                                handleFilesUploaded(uploadedFiles);
-                              }
-                            })
-                            .catch((error) => {
-                              console.error('Failed to open file dialog:', error);
-                            });
-                        } else if (key === 'workspace') {
-                          ipcBridge.dialog.showOpen
-                            .invoke({ properties: ['openDirectory'] })
-                            .then((files) => {
-                              if (files && files[0]) {
-                                setDir(files[0]);
-                              }
-                            })
-                            .catch((error) => {
-                              console.error('Failed to open directory dialog:', error);
-                            });
-                        }
-                      }}
-                    >
-                      <Menu.Item key='file'>
-                        <div className='flex items-center gap-8px'>
-                          <UploadOne theme='outline' size='16' fill={iconColors.secondary} style={{ lineHeight: 0 }} />
-                          <span>{t('conversation.welcome.uploadFile')}</span>
-                        </div>
-                      </Menu.Item>
-                      <Menu.Item key='workspace'>
-                        <div className='flex items-center gap-8px'>
-                          <FolderOpen theme='outline' size='16' fill={iconColors.secondary} style={{ lineHeight: 0 }} />
-                          <span>{t('conversation.welcome.specifyWorkspace')}</span>
-                        </div>
-                      </Menu.Item>
-                    </Menu>
-                  }
-                >
-                  <span className='flex items-center gap-4px cursor-pointer lh-[1]'>
-                    <Button type='text' shape='circle' className={isPlusDropdownOpen ? styles.plusButtonRotate : ''} icon={<Plus theme='outline' size='14' strokeWidth={2} fill={iconColors.primary} />}></Button>
-                    {files.length > 0 && (
-                      <Tooltip className={'!max-w-max'} content={<span className='whitespace-break-spaces'>{getCleanFileNames(files).join('\n')}</span>}>
-                        <span className='text-t-primary'>File({files.length})</span>
-                      </Tooltip>
-                    )}
-                  </span>
-                </Dropdown>
-
-                {selectedAgentKey !== 'image' && (selectedAgent === 'gemini' || (isPresetAgent && resolvePresetAgentType(selectedAgentInfo) === 'gemini')) && (
+                  : {
+                      borderWidth: '1px',
+                      borderColor: isInputActive ? activeBorderColor : inactiveBorderColor,
+                      boxShadow: isInputActive ? activeShadow : 'none',
+                    }),
+              }}
+              {...dragHandlers}
+            >
+              {mentionSelectorVisible && (
+                <div className='flex items-center gap-8px mb-8px'>
+                  <Dropdown
+                    trigger='click'
+                    popupVisible={mentionSelectorOpen}
+                    onVisibleChange={(visible) => {
+                      setMentionSelectorOpen(visible);
+                      if (visible) {
+                        setMentionQuery(null);
+                      }
+                    }}
+                    droplist={mentionMenu}
+                  >
+                    <div className='flex items-center gap-6px bg-fill-2 px-10px py-4px rd-16px cursor-pointer select-none'>
+                      <span className='text-14px font-medium text-t-primary'>@{selectedAgentLabel}</span>
+                      <Down theme='outline' size={12} />
+                    </div>
+                  </Dropdown>
+                </div>
+              )}
+              <Input.TextArea autoSize={{ minRows: 3, maxRows: 20 }} placeholder={typewriterPlaceholder || t('conversation.welcome.placeholder')} className={`text-16px focus:b-none rounded-xl !bg-transparent !b-none !resize-none !p-0 [&.arco-textarea-wrapper]:!b-none [&.arco-textarea-wrapper]:!shadow-none ${styles.lightPlaceholder}`} value={input} onChange={handleInputChange} onPaste={onPaste} onFocus={handleTextareaFocus} onBlur={handleTextareaBlur} {...compositionHandlers} onKeyDown={handleInputKeyDown}></Input.TextArea>
+              {mentionOpen && (
+                <div className='absolute z-50' style={{ left: 16, top: 44 }}>
+                  {mentionMenu}
+                </div>
+              )}
+              {files.length > 0 && (
+                // Show pending files and allow cancellation
+                <div className='flex flex-wrap items-center gap-8px mt-12px mb-12px'>
+                  {files.map((path) => (
+                    <FilePreview key={path} path={path} onRemove={() => handleRemoveFile(path)} />
+                  ))}
+                </div>
+              )}
+              <div className={styles.actionRow}>
+                <div className={styles.actionTools}>
                   <Dropdown
                     trigger='hover'
+                    onVisibleChange={setIsPlusDropdownOpen}
                     droplist={
-                      <Menu selectedKeys={currentModel ? [currentModel.id + currentModel.useModel] : []}>
-                        {!modelList || modelList.length === 0
-                          ? [
-                              /* No available models message */
-                              <Menu.Item key='no-models' className='px-12px py-12px text-t-secondary text-14px text-center flex justify-center items-center' disabled>
-                                {t('settings.noAvailableModels')}
-                              </Menu.Item>,
-                              /* Add Model option */
-                              <Menu.Item key='add-model' className='text-12px text-t-secondary' onClick={() => navigate('/settings/model')}>
-                                <Plus theme='outline' size='12' />
-                                {t('settings.addModel')}
-                              </Menu.Item>,
-                            ]
-                          : [
-                              ...(modelList || []).map((provider) => {
-                                const availableModels = getAvailableModels(provider);
-                                // Only render providers with available models
-                                if (availableModels.length === 0) return null;
-                                return (
-                                  <Menu.ItemGroup title={provider.name} key={provider.id}>
-                                    {availableModels.map((modelName) => {
-                                      const isGoogleProvider = provider.platform?.toLowerCase().includes('gemini-with-google-auth');
-                                      const option = isGoogleProvider ? geminiModeLookup.get(modelName) : undefined;
-
-                                      // Manual mode: show submenu with specific models
-                                      if (option?.subModels && option.subModels.length > 0) {
-                                        return (
-                                          <Menu.SubMenu
-                                            key={provider.id + modelName}
-                                            title={
-                                              <div className='flex items-center justify-between gap-12px w-full'>
-                                                <span>{option.label}</span>
-                                              </div>
-                                            }
-                                          >
-                                            {option.subModels.map((subModel) => (
-                                              <Menu.Item
-                                                key={provider.id + subModel.value}
-                                                className={currentModel?.id + currentModel?.useModel === provider.id + subModel.value ? '!bg-2' : ''}
-                                                onClick={() => {
-                                                  setCurrentModel({ ...provider, useModel: subModel.value }).catch((error) => {
-                                                    console.error('Failed to set current model:', error);
-                                                  });
-                                                }}
-                                              >
-                                                {subModel.label}
-                                              </Menu.Item>
-                                            ))}
-                                          </Menu.SubMenu>
-                                        );
-                                      }
-
-                                      // Normal mode: show single item
-                                      return (
-                                        <Menu.Item
-                                          key={provider.id + modelName}
-                                          className={currentModel?.id + currentModel?.useModel === provider.id + modelName ? '!bg-2' : ''}
-                                          onClick={() => {
-                                            setCurrentModel({ ...provider, useModel: modelName }).catch((error) => {
-                                              console.error('Failed to set current model:', error);
-                                            });
-                                          }}
-                                        >
-                                          {(() => {
-                                            if (!option) {
-                                              return modelName;
-                                            }
-                                            return (
-                                              <Tooltip
-                                                position='right'
-                                                trigger='hover'
-                                                content={
-                                                  <div className='max-w-240px space-y-6px'>
-                                                    <div className='text-12px text-t-secondary leading-5'>{option.description}</div>
-                                                    {option.modelHint && <div className='text-11px text-t-tertiary'>{option.modelHint}</div>}
-                                                  </div>
-                                                }
-                                              >
-                                                <div className='flex items-center justify-between gap-12px w-full'>
-                                                  <span>{option.label}</span>
-                                                </div>
-                                              </Tooltip>
-                                            );
-                                          })()}
-                                        </Menu.Item>
-                                      );
-                                    })}
-                                  </Menu.ItemGroup>
-                                );
-                              }),
-                              /* Add Model option */
-                              <Menu.Item key='add-model' className='text-12px text-t-secondary' onClick={() => navigate('/settings/model')}>
-                                <Plus theme='outline' size='12' />
-                                {t('settings.addModel')}
-                              </Menu.Item>,
-                            ]}
+                      <Menu
+                        className='min-w-200px'
+                        onClickMenuItem={(key) => {
+                          if (key === 'file') {
+                            ipcBridge.dialog.showOpen
+                              .invoke({ properties: ['openFile', 'multiSelections'] })
+                              .then((uploadedFiles) => {
+                                if (uploadedFiles && uploadedFiles.length > 0) {
+                                  // Files uploaded via dialog use append mode
+                                  handleFilesUploaded(uploadedFiles);
+                                }
+                              })
+                              .catch((error) => {
+                                console.error('Failed to open file dialog:', error);
+                              });
+                          } else if (key === 'workspace') {
+                            ipcBridge.dialog.showOpen
+                              .invoke({ properties: ['openDirectory'] })
+                              .then((files) => {
+                                if (files && files[0]) {
+                                  setDir(files[0]);
+                                }
+                              })
+                              .catch((error) => {
+                                console.error('Failed to open directory dialog:', error);
+                              });
+                          }
+                        }}
+                      >
+                        <Menu.Item key='file'>
+                          <div className='flex items-center gap-8px'>
+                            <UploadOne theme='outline' size='16' fill={iconColors.secondary} style={{ lineHeight: 0 }} />
+                            <span>{t('conversation.welcome.uploadFile')}</span>
+                          </div>
+                        </Menu.Item>
+                        <Menu.Item key='workspace'>
+                          <div className='flex items-center gap-8px'>
+                            <FolderOpen theme='outline' size='16' fill={iconColors.secondary} style={{ lineHeight: 0 }} />
+                            <span>{t('conversation.welcome.specifyWorkspace')}</span>
+                          </div>
+                        </Menu.Item>
                       </Menu>
                     }
                   >
-                    <Button className={'sendbox-model-btn'} shape='round'>
-                      {currentModel ? formatGeminiModelLabel(currentModel, currentModel.useModel) : t('conversation.welcome.selectModel')}
-                    </Button>
+                    <span className='flex items-center gap-4px cursor-pointer lh-[1]'>
+                      <Button type='text' shape='circle' className={isPlusDropdownOpen ? styles.plusButtonRotate : ''} icon={<Plus theme='outline' size='14' strokeWidth={2} fill={iconColors.primary} />}></Button>
+                      {files.length > 0 && (
+                        <Tooltip className={'!max-w-max'} content={<span className='whitespace-break-spaces'>{getCleanFileNames(files).join('\n')}</span>}>
+                          <span className='text-t-primary'>File({files.length})</span>
+                        </Tooltip>
+                      )}
+                    </span>
                   </Dropdown>
-                )}
 
-                {isPresetAgent && selectedAgentInfo && (
-                  <div
-                    className={styles.presetAgentTag}
-                    onClick={() => {
-                      /* Optional: Open assistant settings or do nothing, removal is via the X icon */
-                    }}
-                  >
-                    {(() => {
-                      const avatarValue = selectedAgentInfo.avatar?.trim();
-                      const avatarImage = avatarValue ? CUSTOM_AVATAR_IMAGE_MAP[avatarValue] : undefined;
-                      return avatarImage ? <img src={avatarImage} alt='' width={16} height={16} style={{ objectFit: 'contain', flexShrink: 0 }} /> : avatarValue ? <span style={{ fontSize: 14, lineHeight: '16px', flexShrink: 0 }}>{avatarValue}</span> : <Robot theme='outline' size={16} style={{ flexShrink: 0 }} />;
-                    })()}
-                    {(() => {
-                      const agent = customAgents.find((a) => a.id === selectedAgentInfo.customAgentId);
-                      const name = agent?.nameI18n?.[localeKey] || agent?.name || selectedAgentInfo.name;
-                      return <span className={styles.presetAgentTagName}>{name}</span>;
-                    })()}
+                  {selectedAgentKey !== 'image' && selectedAgentKey !== 'ember' && (selectedAgent === 'gemini' || (isPresetAgent && resolvePresetAgentType(selectedAgentInfo) === 'gemini')) && (
+                    <Dropdown
+                      trigger='hover'
+                      droplist={
+                        <Menu selectedKeys={currentModel ? [currentModel.id + currentModel.useModel] : []}>
+                          {!modelList || modelList.length === 0
+                            ? [
+                                /* No available models message */
+                                <Menu.Item key='no-models' className='px-12px py-12px text-t-secondary text-14px text-center flex justify-center items-center' disabled>
+                                  {t('settings.noAvailableModels')}
+                                </Menu.Item>,
+                                /* Add Model option */
+                                <Menu.Item key='add-model' className='text-12px text-t-secondary' onClick={() => navigate('/settings/model')}>
+                                  <Plus theme='outline' size='12' />
+                                  {t('settings.addModel')}
+                                </Menu.Item>,
+                              ]
+                            : [
+                                ...(modelList || []).map((provider) => {
+                                  const availableModels = getAvailableModels(provider);
+                                  // Only render providers with available models
+                                  if (availableModels.length === 0) return null;
+                                  return (
+                                    <Menu.ItemGroup title={provider.name} key={provider.id}>
+                                      {availableModels.map((modelName) => {
+                                        const isGoogleProvider = provider.platform?.toLowerCase().includes('gemini-with-google-auth');
+                                        const option = isGoogleProvider ? geminiModeLookup.get(modelName) : undefined;
+
+                                        // Manual mode: show submenu with specific models
+                                        if (option?.subModels && option.subModels.length > 0) {
+                                          return (
+                                            <Menu.SubMenu
+                                              key={provider.id + modelName}
+                                              title={
+                                                <div className='flex items-center justify-between gap-12px w-full'>
+                                                  <span>{option.label}</span>
+                                                </div>
+                                              }
+                                            >
+                                              {option.subModels.map((subModel) => (
+                                                <Menu.Item
+                                                  key={provider.id + subModel.value}
+                                                  className={currentModel?.id + currentModel?.useModel === provider.id + subModel.value ? '!bg-2' : ''}
+                                                  onClick={() => {
+                                                    setCurrentModel({ ...provider, useModel: subModel.value }).catch((error) => {
+                                                      console.error('Failed to set current model:', error);
+                                                    });
+                                                  }}
+                                                >
+                                                  {subModel.label}
+                                                </Menu.Item>
+                                              ))}
+                                            </Menu.SubMenu>
+                                          );
+                                        }
+
+                                        // Normal mode: show single item
+                                        return (
+                                          <Menu.Item
+                                            key={provider.id + modelName}
+                                            className={currentModel?.id + currentModel?.useModel === provider.id + modelName ? '!bg-2' : ''}
+                                            onClick={() => {
+                                              setCurrentModel({ ...provider, useModel: modelName }).catch((error) => {
+                                                console.error('Failed to set current model:', error);
+                                              });
+                                            }}
+                                          >
+                                            {(() => {
+                                              if (!option) {
+                                                return modelName;
+                                              }
+                                              return (
+                                                <Tooltip
+                                                  position='right'
+                                                  trigger='hover'
+                                                  content={
+                                                    <div className='max-w-240px space-y-6px'>
+                                                      <div className='text-12px text-t-secondary leading-5'>{option.description}</div>
+                                                      {option.modelHint && <div className='text-11px text-t-tertiary'>{option.modelHint}</div>}
+                                                    </div>
+                                                  }
+                                                >
+                                                  <div className='flex items-center justify-between gap-12px w-full'>
+                                                    <span>{option.label}</span>
+                                                  </div>
+                                                </Tooltip>
+                                              );
+                                            })()}
+                                          </Menu.Item>
+                                        );
+                                      })}
+                                    </Menu.ItemGroup>
+                                  );
+                                }),
+                                /* Add Model option */
+                                <Menu.Item key='add-model' className='text-12px text-t-secondary' onClick={() => navigate('/settings/model')}>
+                                  <Plus theme='outline' size='12' />
+                                  {t('settings.addModel')}
+                                </Menu.Item>,
+                              ]}
+                        </Menu>
+                      }
+                    >
+                      <Button className={'sendbox-model-btn'} shape='round'>
+                        {currentModel ? formatGeminiModelLabel(currentModel, currentModel.useModel) : t('conversation.welcome.selectModel')}
+                      </Button>
+                    </Dropdown>
+                  )}
+
+                  {isPresetAgent && selectedAgentInfo && (
                     <div
-                      className={styles.presetAgentTagClose}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setSelectedAgentKey('gemini'); // Reset to default
+                      className={styles.presetAgentTag}
+                      onClick={() => {
+                        /* Optional: Open assistant settings or do nothing, removal is via the X icon */
                       }}
                     >
-                      <IconClose style={{ fontSize: 12, color: 'var(--color-text-3)' }} />
+                      {(() => {
+                        const avatarValue = selectedAgentInfo.avatar?.trim();
+                        const avatarImage = avatarValue ? CUSTOM_AVATAR_IMAGE_MAP[avatarValue] : undefined;
+                        return avatarImage ? <img src={avatarImage} alt='' width={16} height={16} style={{ objectFit: 'contain', flexShrink: 0 }} /> : avatarValue ? <span style={{ fontSize: 14, lineHeight: '16px', flexShrink: 0 }}>{avatarValue}</span> : <Robot theme='outline' size={16} style={{ flexShrink: 0 }} />;
+                      })()}
+                      {(() => {
+                        const agent = customAgents.find((a) => a.id === selectedAgentInfo.customAgentId);
+                        const name = agent?.nameI18n?.[localeKey] || agent?.name || selectedAgentInfo.name;
+                        return <span className={styles.presetAgentTagName}>{name}</span>;
+                      })()}
+                      <div
+                        className={styles.presetAgentTagClose}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedAgentKey('gemini'); // Reset to default
+                        }}
+                      >
+                        <IconClose style={{ fontSize: 12, color: 'var(--color-text-3)' }} />
+                      </div>
                     </div>
+                  )}
+                </div>
+                <div className={styles.actionSubmit}>
+                  <Button
+                    shape='circle'
+                    type='primary'
+                    loading={loading}
+                    disabled={!input.trim() || (selectedAgentKey !== 'image' && selectedAgentKey !== 'ember' && (!selectedAgent || selectedAgent === 'gemini' || (isPresetAgent && resolvePresetAgentType(selectedAgentInfo) === 'gemini')) && !currentModel)}
+                    icon={<ArrowUp theme='outline' size='14' fill='white' strokeWidth={2} />}
+                    onClick={() => {
+                      handleSend().catch((error) => {
+                        console.error('Failed to send message:', error);
+                      });
+                    }}
+                  />
+                </div>
+              </div>
+              {dir && (
+                <div className='flex items-center justify-between gap-6px h-28px mt-12px px-12px text-13px text-t-secondary ' style={{ borderTop: '1px solid var(--border-base)' }}>
+                  <div className='flex items-center'>
+                    <FolderOpen className='m-r-8px flex-shrink-0' theme='outline' size='16' fill={iconColors.secondary} style={{ lineHeight: 0 }} />
+                    <Tooltip content={dir} position='top'>
+                      <span className='truncate'>
+                        {t('conversation.welcome.currentWorkspace')}: {dir.split(/[/\\]/).pop() || dir}
+                      </span>
+                    </Tooltip>
                   </div>
-                )}
-              </div>
-              <div className={styles.actionSubmit}>
-                <Button
-                  shape='circle'
-                  type='primary'
-                  loading={loading}
-                  disabled={!input.trim() || (selectedAgentKey !== 'image' && (!selectedAgent || selectedAgent === 'gemini' || (isPresetAgent && resolvePresetAgentType(selectedAgentInfo) === 'gemini')) && !currentModel)}
-                  icon={<ArrowUp theme='outline' size='14' fill='white' strokeWidth={2} />}
-                  onClick={() => {
-                    handleSend().catch((error) => {
-                      console.error('Failed to send message:', error);
-                    });
-                  }}
-                />
-              </div>
-            </div>
-            {dir && (
-              <div className='flex items-center justify-between gap-6px h-28px mt-12px px-12px text-13px text-t-secondary ' style={{ borderTop: '1px solid var(--border-base)' }}>
-                <div className='flex items-center'>
-                  <FolderOpen className='m-r-8px flex-shrink-0' theme='outline' size='16' fill={iconColors.secondary} style={{ lineHeight: 0 }} />
-                  <Tooltip content={dir} position='top'>
-                    <span className='truncate'>
-                      {t('conversation.welcome.currentWorkspace')}: {dir.split(/[/\\]/).pop() || dir}
-                    </span>
+                  <Tooltip content={t('conversation.welcome.clearWorkspace')} position='top'>
+                    <IconClose className='hover:text-[rgb(var(--danger-6))] hover:bg-3 transition-colors' strokeWidth={3} style={{ fontSize: 16 }} onClick={() => setDir('')} />
                   </Tooltip>
                 </div>
-                <Tooltip content={t('conversation.welcome.clearWorkspace')} position='top'>
-                  <IconClose className='hover:text-[rgb(var(--danger-6))] hover:bg-3 transition-colors' strokeWidth={3} style={{ fontSize: 16 }} onClick={() => setDir('')} />
-                </Tooltip>
-              </div>
-            )}
+              )}
+            </div>
           </div>
 
           {/* Assistant Selection Area */}

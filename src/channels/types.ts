@@ -9,7 +9,7 @@
 /**
  * Supported platform types for plugins
  */
-export type PluginType = 'telegram' | 'slack' | 'discord' | 'lark' | 'whatsapp' | 'signal';
+export type PluginType = 'telegram' | 'slack' | 'discord' | 'whatsapp' | 'signal';
 
 /**
  * Plugin connection status
@@ -20,13 +20,8 @@ export type PluginStatus = 'created' | 'initializing' | 'ready' | 'starting' | '
  * Plugin credentials (stored encrypted in database)
  */
 export interface IPluginCredentials {
-  // Telegram
   token?: string;
-  // Lark/Feishu
-  appId?: string;
-  appSecret?: string;
-  encryptKey?: string;
-  verificationToken?: string;
+  appId?: string; // Secondary credential (Slack app-level token, Signal API base URL)
 }
 
 /**

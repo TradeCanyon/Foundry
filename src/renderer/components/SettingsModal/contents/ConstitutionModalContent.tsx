@@ -11,7 +11,7 @@
  */
 
 import MarkdownView from '@/renderer/components/Markdown';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 
 const DEFAULT_CONSTITUTION = `# Foundry Constitution
 
@@ -56,18 +56,20 @@ const DEFAULT_CONSTITUTION = `# Foundry Constitution
 
 const ConstitutionModalContent: React.FC = () => {
   const [constitution, setConstitution] = useState<string>(DEFAULT_CONSTITUTION);
+  const [source, setSource] = useState<'default' | 'custom'>('default');
   const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
-    // Try to load constitution from backend
     import('@/common')
       .then(({ ipcBridge }) => {
-        // Try loading from .foundry/constitution.md via IPC
-        // For now, fall back to default since we may not have a dedicated IPC endpoint yet
         return ipcBridge.fs?.readFile
           ?.invoke({ path: '.foundry/constitution.md' })
           .then((content: string) => {
-            if (content) setConstitution(content);
+            if (content) {
+              setConstitution(content);
+              setSource('custom');
+            }
           })
           .catch(() => {
             // Use default
@@ -79,44 +81,59 @@ const ConstitutionModalContent: React.FC = () => {
       .finally(() => setLoading(false));
   }, []);
 
+  const filteredConstitution = useMemo(() => {
+    if (!searchQuery.trim()) return constitution;
+    const query = searchQuery.toLowerCase();
+    const lines = constitution.split('\n');
+    const filtered: string[] = [];
+    let currentSection: string[] = [];
+    let sectionMatches = false;
+    let currentHeader = '';
+
+    for (const line of lines) {
+      if (line.startsWith('#')) {
+        // Flush previous section if it matched
+        if (sectionMatches && currentSection.length > 0) {
+          if (currentHeader) filtered.push(currentHeader);
+          filtered.push(...currentSection);
+        }
+        currentHeader = line;
+        currentSection = [];
+        sectionMatches = line.toLowerCase().includes(query);
+      } else {
+        currentSection.push(line);
+        if (line.toLowerCase().includes(query)) sectionMatches = true;
+      }
+    }
+    // Flush last section
+    if (sectionMatches && currentSection.length > 0) {
+      if (currentHeader) filtered.push(currentHeader);
+      filtered.push(...currentSection);
+    }
+
+    return filtered.length > 0 ? filtered.join('\n') : `No principles matching "${searchQuery}"`;
+  }, [constitution, searchQuery]);
+
   return (
-    <div style={{ padding: '16px', height: '100%', display: 'flex', flexDirection: 'column' }}>
+    <div className='flex flex-col h-full p-16px'>
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
-        <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 600, color: 'var(--text-primary)' }}>Constitution</h2>
-        <span
-          style={{
-            padding: '2px 8px',
-            borderRadius: '4px',
-            fontSize: '11px',
-            fontWeight: 600,
-            backgroundColor: 'rgba(255, 107, 53, 0.15)',
-            color: '#ff6b35',
-            textTransform: 'uppercase',
-            letterSpacing: '0.5px',
-          }}
-        >
+      <div className='flex items-center gap-12px mb-16px'>
+        <h2 className='m-0 text-18px font-600 text-t-primary'>Constitution</h2>
+        <span className='px-8px py-2px rd-4px text-11px font-600 uppercase tracking-0.5px' style={{ backgroundColor: 'rgba(255, 107, 53, 0.15)', color: '#ff6b35' }}>
           Human-Only
         </span>
+        <span className='text-11px text-t-tertiary ml-auto'>Source: {source === 'custom' ? 'Custom (.foundry/constitution.md)' : 'Default'}</span>
       </div>
 
-      <p style={{ margin: '0 0 16px', fontSize: '13px', color: 'var(--text-secondary)', lineHeight: '20px' }}>
-        These rules govern all AI agent behavior in Foundry. They are injected into every conversation and cannot be overridden by agents. To customize, edit <code style={{ fontSize: '12px', backgroundColor: 'var(--bg-2)', padding: '1px 4px', borderRadius: '3px' }}>.foundry/constitution.md</code> in your project.
+      <p className='m-0 mb-12px text-13px text-t-secondary leading-20px'>
+        These rules govern all AI agent behavior in Foundry. They are injected into every conversation and cannot be overridden by agents. To customize, edit <code className='text-12px bg-fill-2 px-4px py-1px rd-3px'>.foundry/constitution.md</code> in your project.
       </p>
 
+      {/* Search */}
+      <input type='text' value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder='Filter principles...' className='w-full px-12px py-8px rd-6px b-1 b-solid b-color-border-2 bg-fill-1 text-t-primary text-13px outline-none focus:b-brand mb-12px' />
+
       {/* Constitution content */}
-      <div
-        style={{
-          flex: 1,
-          overflow: 'auto',
-          border: '1px solid var(--bg-3)',
-          borderRadius: '8px',
-          padding: '16px',
-          backgroundColor: 'var(--bg-1)',
-        }}
-      >
-        {loading ? <div style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '24px' }}>Loading...</div> : <MarkdownView>{constitution}</MarkdownView>}
-      </div>
+      <div className='flex-1 overflow-auto b-1 b-solid b-color-border-2 rd-8px p-16px bg-bg-1'>{loading ? <div className='text-t-secondary text-center py-24px'>Loading...</div> : <MarkdownView>{filteredConstitution}</MarkdownView>}</div>
     </div>
   );
 };

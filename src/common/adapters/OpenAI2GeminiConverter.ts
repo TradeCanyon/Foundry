@@ -142,7 +142,7 @@ export class OpenAI2GeminiConverter implements ProtocolConverter<OpenAIChatCompl
 
     // Enable image output when using an image generation model
     if (isImageModel) {
-      request.config = { responseModalities: ['IMAGE', 'TEXT'] };
+      request.config = { responseModalities: ['TEXT', 'IMAGE'] };
     }
 
     // Add tools if present in OpenAI request

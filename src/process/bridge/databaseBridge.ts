@@ -8,6 +8,7 @@ import { ipcBridge } from '../../common';
 import { getDatabase } from '@process/database';
 import { ProcessChat } from '../initStorage';
 import type { TChatConversation } from '@/common/storage';
+import { rowToConversation } from '../database/types';
 import { migrateConversationToDatabase } from './migrationUtils';
 
 export function initDatabaseBridge(): void {
@@ -54,6 +55,20 @@ export function initDatabaseBridge(): void {
     } catch (error) {
       console.error('[DatabaseBridge] Error getting conversation messages:', error);
       return Promise.resolve([]);
+    }
+  });
+
+  // Search conversations by name (LIKE query)
+  ipcBridge.database.searchConversations.provider(async ({ query, limit = 20 }) => {
+    try {
+      const db = getDatabase();
+      const searchPattern = `%${query.replace(/%/g, '\\%').replace(/_/g, '\\_')}%`;
+      const stmt = (db as any).db.prepare("SELECT * FROM conversations WHERE name LIKE ? ESCAPE '\\' ORDER BY COALESCE(updated_at, created_at) DESC LIMIT ?");
+      const rows = stmt.all(searchPattern, limit) as any[];
+      return rows.map((row: any) => rowToConversation(row)) as TChatConversation[];
+    } catch (error) {
+      console.error('[DatabaseBridge] Error searching conversations:', error);
+      return [];
     }
   });
 

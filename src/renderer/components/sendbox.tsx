@@ -14,8 +14,10 @@ import { useCompositionInput } from '../hooks/useCompositionInput';
 import { useDragUpload } from '../hooks/useDragUpload';
 import { useLatestRef } from '../hooks/useLatestRef';
 import { usePasteService } from '../hooks/usePasteService';
+import { useSendBoxAutocomplete } from '../hooks/useSendBoxAutocomplete';
 import type { FileMetadata } from '../services/FileService';
 import { allSupportedExts } from '../services/FileService';
+import SendBoxAutocomplete from './SendBoxAutocomplete';
 
 const constVoid = (): void => undefined;
 // Threshold: switch to multi-line mode directly when character count exceeds this value to avoid heavy layout work
@@ -177,7 +179,10 @@ const SendBox: React.FC<{
   const [message, context] = Message.useMessage();
 
   // Use shared input composition handling
-  const { compositionHandlers, createKeyDownHandler } = useCompositionInput();
+  const { isComposing, compositionHandlers, createKeyDownHandler } = useCompositionInput();
+
+  // Autocomplete for @mentions and /commands
+  const autocomplete = useSendBoxAutocomplete(input, setInput, isComposing, isInputFocused);
 
   // Use shared PasteService integration
   const { onPaste, onFocus: handlePasteFocus } = usePasteService({
@@ -273,7 +278,9 @@ const SendBox: React.FC<{
   }, [isLoading, loading, onStop, isStopping]);
 
   return (
-    <div className={className}>
+    <div className={`${className} relative`}>
+      {/* Autocomplete dropdown (positioned above the sendbox, outside overflow-hidden container) */}
+      <SendBoxAutocomplete isOpen={autocomplete.isOpen} trigger={autocomplete.trigger} filteredOptions={autocomplete.filteredOptions} activeIndex={autocomplete.activeIndex} menuRef={autocomplete.menuRef} onSelect={autocomplete.handleSelect} />
       <div
         ref={containerRef}
         className={`relative p-16px border-3 b bg-dialog-fill-0 b-solid rd-20px flex flex-col overflow-hidden ${isFileDragging ? 'b-dashed' : ''}`}
@@ -314,7 +321,7 @@ const SendBox: React.FC<{
             disabled={disabled}
             value={input}
             placeholder={!input.trim() && suggestedReply ? suggestedReply : placeholder}
-            className='pl-0 pr-0 !b-none focus:shadow-none m-0 !bg-transparent !focus:bg-transparent !hover:bg-transparent lh-[20px] !resize-none text-14px'
+            className='pl-0 pr-0 !b-none focus:shadow-none m-0 !bg-transparent !focus:bg-transparent !hover:bg-transparent lh-[20px] !resize-none text-14px [&.arco-textarea-wrapper]:!b-none [&.arco-textarea-wrapper]:!shadow-none'
             style={{
               width: isSingleLine ? 'auto' : '100%',
               flex: isSingleLine ? 1 : 'none',
@@ -340,7 +347,10 @@ const SendBox: React.FC<{
             onBlur={handleInputBlur}
             {...compositionHandlers}
             autoSize={isSingleLine ? false : { minRows: 1, maxRows: 10 }}
-            onKeyDown={createKeyDownHandler(sendMessageHandler)}
+            onKeyDown={(e) => {
+              if (autocomplete.handleKeyDown(e)) return;
+              createKeyDownHandler(sendMessageHandler)(e);
+            }}
           ></Input.TextArea>
           {isSingleLine && (
             <div className='flex items-center gap-2'>
@@ -381,6 +391,27 @@ const SendBox: React.FC<{
           </div>
         )}
       </div>
+      {/* Autocomplete hint — shown when sendbox is focused and empty */}
+      {isInputFocused && !input.trim() && !loading && !isLoading && (
+        <div
+          style={{
+            padding: '2px 16px 0',
+            fontSize: '11px',
+            color: 'var(--text-tertiary)',
+            opacity: 0.6,
+            userSelect: 'none',
+            display: 'flex',
+            gap: '12px',
+          }}
+        >
+          <span>
+            <kbd style={{ fontFamily: 'inherit', fontWeight: 600 }}>/</kbd> commands
+          </span>
+          <span>
+            <kbd style={{ fontFamily: 'inherit', fontWeight: 600 }}>@</kbd> mention
+          </span>
+        </div>
+      )}
       {/* AI Disclaimer */}
       <p className='text-center text-11px text-t-tertiary mt-6px mb-0 select-none'>{t('messages.aiDisclaimer')}</p>
     </div>
